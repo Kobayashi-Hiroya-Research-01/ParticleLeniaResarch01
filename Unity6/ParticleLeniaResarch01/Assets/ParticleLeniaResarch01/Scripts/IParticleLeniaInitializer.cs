@@ -2,12 +2,12 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 {
     public interface IParticleLeniaInitializer
     {
-        public double DeltaTime { get; }
+        double DeltaTime { get; }
 
-        public int ParticleCount { get; }
+        int ParticleCount { get; }
 
-        public int Dimensions { get; }
+        int Dimensions { get; }
 
-        public ParticleInfoArray CreateParticles();
+        ParticleInfoArray CreateParticles();
     }
 }

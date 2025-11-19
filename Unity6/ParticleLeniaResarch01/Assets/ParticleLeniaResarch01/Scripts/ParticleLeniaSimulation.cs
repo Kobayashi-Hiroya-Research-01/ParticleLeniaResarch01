@@ -1,18 +1,11 @@
 using Assets.MathNet.Numerics.Custom;
 using Assets.ParticleLenia.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Fields;
-using MathNet.Numerics;
-using MathNet.Numerics.Random;
-using NUnit.Framework.Internal;
 using System;
 using System.Threading.Tasks;
-using Unity.VisualScripting;
-using UnityEngine.Rendering;
-using UnityEngine.UIElements;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.Data
 {
-    //åvéZå©íºÇ≥Ç»Ç¢Ç∆Åc
     public sealed class ParticleLeniaSimulation : IParticleLenia, Grad.IValueAtPoint<IParticleFields>
     {
         /// <summary>
@@ -105,6 +98,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 
         public string Description => "Particle Lenia original simulation";
 
+        public ParticleLeniaTimeLine TimeLine { get; private set; }
         public int CurrentStep { get; private set; }
         public int ParticleCount => source.ParticleCount;
         public int Dimensions => source.Dimensions;
@@ -119,7 +113,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             return source.lastResult;
         }
 
-        public void Next(int step)
+        public void Next(int step, bool updateTimeLine)
         {
             if (step <= 0) throw new ArgumentOutOfRangeException(nameof(step));
 
@@ -131,12 +125,13 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 
             for (int i = 0; i < step; i++)
             {
-                Step();
+                Step(updateTimeLine);
             }
         }
 
         public void Init()
         {
+            TimeLine = new ParticleLeniaTimeLine(Description);
             source = new CulcSource(Initializer);
             CurrentStep = 0;
 
@@ -156,7 +151,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             source.lastResult.Time = CurrentTime;
         }
 
-        private void Step()
+        private void Step(bool updateTimeLine)
         {
             var nextResult = source.tempResult;
             var lastResult = source.lastResult;
@@ -189,6 +184,13 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 
             source.lastResult.Step = CurrentStep;
             source.lastResult.Time = CurrentTime;
+
+            if (updateTimeLine)
+            {
+                var result = source.lastResult;
+                var newResult = new ParticleInfoArray(result.Array.ToArray(), result.Time, result.Step);
+                TimeLine.TimeLine.Add(newResult);
+            }
         }
 
         private void Multi()

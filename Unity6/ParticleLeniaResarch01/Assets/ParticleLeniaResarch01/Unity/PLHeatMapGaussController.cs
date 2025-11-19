@@ -8,7 +8,7 @@ public class PLHeatMapGaussController : MonoBehaviour
     private Material material;
 
     private ParticleInfo particleInfo;
-    private PLColorModeController colorModeController;
+    private PLViewModeController viewModeController;
 
     private void OnEnable()
     {
@@ -16,10 +16,10 @@ public class PLHeatMapGaussController : MonoBehaviour
         material = renderer.material;
     }
 
-    public void Setup(ParticleInfo particleInfo, PLColorModeController colorModeController)
+    public void Setup(ParticleInfo particleInfo, PLViewModeController viewModeController)
     {
         this.particleInfo = particleInfo;
-        this.colorModeController = colorModeController;
+        this.viewModeController = viewModeController;
         material.SetFloat("_mu", (float)particleInfo.fields.GetProperty(ParticleFieldsOriginal.PropertyNames.K_mu));
         material.SetFloat("_sigma", (float)particleInfo.fields.GetProperty(ParticleFieldsOriginal.PropertyNames.K_sigma));
         material.SetFloat("_sigma", (float)particleInfo.fields.GetProperty(ParticleFieldsOriginal.PropertyNames.K_sigma));
@@ -29,6 +29,6 @@ public class PLHeatMapGaussController : MonoBehaviour
     private void Update()
     {
         var wk = (float)particleInfo.fields.GetProperty(ParticleFieldsOriginal.PropertyNames.WK);
-        material.SetFloat("_Alpha", wk * colorModeController.utHeatMapAlpha);
+        material.SetFloat("_Alpha", wk * viewModeController.utHeatMapAlpha);
     }
 }

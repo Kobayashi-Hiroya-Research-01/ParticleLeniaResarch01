@@ -43,5 +43,10 @@ namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
             var a = x - mu;
             return Math.Exp(-a * a * b);
         }
+
+        public override string ToString()
+        {
+            return base.ToString();
+        }
     }
 }

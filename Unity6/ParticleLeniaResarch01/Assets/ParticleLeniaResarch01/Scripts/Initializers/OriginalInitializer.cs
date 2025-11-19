@@ -1,13 +1,11 @@
 ﻿using Assets.ParticleLeniaResarch01.Scripts.Data;
 using Assets.ParticleLeniaResarch01.Scripts.Fields;
 using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
-using MathNet.Numerics.Integration;
 using MathNet.Numerics;
+using MathNet.Numerics.Integration;
 using MathNet.Numerics.Random;
 using System;
-using Unity.VisualScripting;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.Initializers
 {
@@ -74,6 +72,28 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Initializers
             public int dimensions = 2;
             public double area = 12;
             public int seed = 24;
+
+            public void OnValidate(ref bool oldAutoWk, ref double oldWk)
+            {
+                if (oldAutoWk != autoWk)
+                {
+                    if (autoWk)
+                    {
+                        oldWk = fields.wk;
+                    }
+                    else
+                    {
+                        fields.wk = oldWk;
+                    }
+                    oldAutoWk = autoWk;
+                }
+
+                if (autoWk)
+                {
+                    var k = fields.kernelGauss;
+                    fields.wk = CalcW(k.mu, k.sigma, dimensions);
+                }
+            }
         }
 
         private State state = new();
