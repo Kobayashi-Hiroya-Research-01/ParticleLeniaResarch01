@@ -5,28 +5,32 @@ public class PLParticleController : MonoBehaviour
 {
     public PLHeatMapGaussController heatMapU;
     public PLHeatMapRepController heatMapR;
+    public Renderer core;
 
     public float e;
     public float g;
     public float r;
 
-    private new Renderer renderer;
     private Material material;
     private ParticleInfo particleInfo;
-    private PLColorModeController colorModeController;
+    private PLViewModeController viewModeController;
 
     private void OnEnable()
     {
-        renderer = GetComponent<Renderer>();
-        material = renderer.material;
+        material = core.material;
     }
 
-    public void Setup(ParticleInfo particleInfo, PLColorModeController colorModeController)
+    private void OnDisable()
+    {
+        Destroy(material);
+    }
+
+    public void Setup(ParticleInfo particleInfo, PLViewModeController viewModeController)
     {
         this.particleInfo = particleInfo;
-        this.colorModeController = colorModeController;
-        heatMapU.Setup(particleInfo, colorModeController);
-        heatMapR.Setup(particleInfo, colorModeController);
+        this.viewModeController = viewModeController;
+        heatMapU.Setup(particleInfo, viewModeController);
+        heatMapR.Setup(particleInfo, viewModeController);
     }
 
     public void Update()
@@ -40,16 +44,17 @@ public class PLParticleController : MonoBehaviour
             posV[i] = (float)pos[i];
         }
 
-        material.color = colorModeController.GetColor(particleInfo, out _);
+        material.color = viewModeController.GetColor(particleInfo);
 
         if (pos.Length < 3)
         {
-            var z = colorModeController.GetRate(particleInfo, PLColorModeController.ColorMode.E);
+            var z = viewModeController.GetRate(particleInfo, PLViewModeController.ColorMode.E);
             posV[2] = 10f * (1.0f - z);
         }
 
         transform.position = posV;
-
+        var size = viewModeController.coreSize;
+        core.transform.localScale = size * Vector3.one;
         e = (float)particleInfo.LastE;
         g = (float)particleInfo.lastGt;
         r = (float)particleInfo.lastRt;

@@ -19,9 +19,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             public double rt;
             public double e;
 
-            public Record(ParticleInfo particleInfo, Func<IParticleFields, string> jsonWriter)
+            public Record(ParticleInfo particleInfo, IParticleFieldsSerializer serializer)
             {
-                fieldsJson = jsonWriter(particleInfo.fields);
+                fieldsJson = serializer.Write(particleInfo.fields);
                 position = particleInfo.position.ToArray();
                 ut = particleInfo.lastUt;
                 gt = particleInfo.lastGt;
@@ -36,9 +36,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             public readonly double Rt => rt;
             public readonly double E => e;
 
-            public readonly ParticleInfo ToRaw(Func<string, IParticleFields> jsonReader)
+            public readonly ParticleInfo ToRaw(IParticleFieldsSerializer serializer)
             {
-                return new ParticleInfo(this, jsonReader);
+                return new ParticleInfo(this, serializer);
             }
         }
 
@@ -49,8 +49,8 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         public double lastRt;
         public double LastE => lastRt - lastGt;
 
-        public ParticleInfo(in Record record, Func<string, IParticleFields> jsonReader) :
-            this(jsonReader(record.fieldsJson), record.position.ToArray(), record.gt, record.rt, record.ut)
+        public ParticleInfo(in Record record, IParticleFieldsSerializer serializer) :
+            this(serializer.Read(record.fieldsJson), record.position.ToArray(), record.gt, record.rt, record.ut)
         {
         }
 
@@ -63,9 +63,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             this.lastUt = lastUt;
         }
 
-        public Record ToRecord(Func<IParticleFields, string> jsonWriter)
+        public Record ToRecord(IParticleFieldsSerializer serializer)
         {
-            return new Record(this, jsonWriter);
+            return new Record(this, serializer);
         }
     }
 }

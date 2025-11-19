@@ -1,6 +1,6 @@
-﻿using System;
+﻿using MathNet.Numerics;
 using MathNet.Numerics.Differentiation;
-using MathNet.Numerics;
+using System;
 
 namespace Assets.MathNet.Numerics.Custom
 {

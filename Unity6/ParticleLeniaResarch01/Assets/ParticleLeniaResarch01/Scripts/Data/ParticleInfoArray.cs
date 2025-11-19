@@ -1,9 +1,5 @@
-using Assets.ParticleLenia.Scripts;
-using Assets.ParticleLeniaResarch01.Scripts.Fields;
 using System;
 using System.Linq;
-using UnityEngine;
-using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.Data
 {
@@ -28,9 +24,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
                 this.particles = particles;
             }
 
-            public readonly ParticleInfoArray ToRaw(Func<string, IParticleFields> jsonReader)
+            public readonly ParticleInfoArray ToRaw(IParticleFieldsSerializer serializer)
             {
-                var array = particles.Select(e => e.ToRaw(jsonReader)).ToArray();
+                var array = particles.Select(e => e.ToRaw(serializer)).ToArray();
                 return new ParticleInfoArray(array, time, frame);
             }
         }
@@ -60,9 +56,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         {
         }
 
-        public Record ToRecord(Func<IParticleFields, string> jsonWriter)
+        public Record ToRecord(IParticleFieldsSerializer serializer)
         {
-            var array = this.array.Select(e => e.ToRecord(jsonWriter)).ToArray();
+            var array = this.array.Select(e => e.ToRecord(serializer)).ToArray();
             return new Record(array, Time, Step);
         }
     }

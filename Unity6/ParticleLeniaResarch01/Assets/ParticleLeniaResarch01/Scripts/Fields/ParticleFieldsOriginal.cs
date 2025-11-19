@@ -25,12 +25,14 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Fields
 
             public State(in Gauss.State kGauss, double wk, in Gauss.State gGauss, double cRep)
             {
-                this.kernelGauss = kGauss;
+                kernelGauss = kGauss;
                 this.wk = wk;
-                this.growthGauss = gGauss;
+                growthGauss = gGauss;
                 this.cRep = cRep;
             }
         }
+
+        public State GetState() => new(new(KGauss.mu, KGauss.sigma), Wk, new(GGauss.mu, GGauss.sigma), Rep.C_rep);
 
         public Gauss KGauss { get; set; }
         public double Wk { get; set; }

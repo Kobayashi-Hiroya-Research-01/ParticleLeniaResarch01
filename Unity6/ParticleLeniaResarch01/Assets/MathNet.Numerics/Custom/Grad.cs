@@ -1,7 +1,4 @@
 ﻿using System;
-using MathNet.Numerics.Differentiation;
-using MathNet.Numerics;
-using static Assets.MathNet.Numerics.Custom.Grad;
 
 namespace Assets.MathNet.Numerics.Custom
 {

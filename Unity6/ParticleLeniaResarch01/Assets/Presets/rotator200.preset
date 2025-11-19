@@ -25,11 +25,11 @@ Preset:
     value: '::'
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: colorModeController
+    propertyPath: viewModeController
     value: 
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: cameraModeController
+    propertyPath: cameraController
     value: 
     objectReference: {fileID: 0}
   - target: {fileID: 0}
@@ -45,55 +45,75 @@ Preset:
     value: 0
     objectReference: {fileID: 0}
   - target: {fileID: 0}
+    propertyPath: updateTimeLine
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: viewTimeLine
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: playerOptions.isPlay
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: playerOptions.seedIncrement
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: playerOptions.stepParFrame
+    value: 2
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
     propertyPath: step
     value: 1
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.fields.kernelGauss.mu
+    propertyPath: simulationOptions.fields.kernelGauss.mu
     value: 4
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.fields.kernelGauss.sigma
+    propertyPath: simulationOptions.fields.kernelGauss.sigma
     value: 1
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.fields.wk
+    propertyPath: simulationOptions.fields.wk
     value: 0.022
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.fields.growthGauss.mu
+    propertyPath: simulationOptions.fields.growthGauss.mu
     value: 0.6
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.fields.growthGauss.sigma
+    propertyPath: simulationOptions.fields.growthGauss.sigma
     value: 0.15
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.fields.cRep
+    propertyPath: simulationOptions.fields.cRep
     value: 1
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.autoWk
+    propertyPath: simulationOptions.autoWk
     value: 0
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.deltaTime
+    propertyPath: simulationOptions.deltaTime
     value: 0.1
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.particleCount
+    propertyPath: simulationOptions.particleCount
     value: 200
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.dimensions
+    propertyPath: simulationOptions.dimensions
     value: 2
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.area
+    propertyPath: simulationOptions.area
     value: 12
     objectReference: {fileID: 0}
   - target: {fileID: 0}
-    propertyPath: options.seed
+    propertyPath: simulationOptions.seed
     value: 210
     objectReference: {fileID: 0}
   - target: {fileID: 0}

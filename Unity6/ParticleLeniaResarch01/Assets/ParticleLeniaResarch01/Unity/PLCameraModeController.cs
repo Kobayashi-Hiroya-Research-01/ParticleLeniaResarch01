@@ -15,10 +15,6 @@ public class PLCameraModeController : MonoBehaviour
         public Color color;
     }
 
-    public new Camera camera;
-
-    public Renderer grid;
-
     public GridOption gridOption;
 
     public bool chaseCenter;
@@ -27,16 +23,13 @@ public class PLCameraModeController : MonoBehaviour
     public float chaseSpeed;
 
     private List<PLParticleController> particles;
-    private Material gridMaterial;
 
     public void Setup(List<PLParticleController> particles)
     {
         this.particles = particles;
-        gridMaterial = grid.material;
     }
 
-    // Update is called once per frame
-    private void Update()
+    public void CameraUpdate(Camera camera)
     {
         if (chaseCenter && particles != null && particles.Count > 0)
         {
@@ -57,15 +50,18 @@ public class PLCameraModeController : MonoBehaviour
             var chaseSpeedY = 0f;
             var dx = Mathf.Abs(center_view.x) - 0.25f;
             var dy = Mathf.Abs(center_view.y) - 0.25f;
-            if (dx > 0f) chaseSpeedX = Mathf.Clamp01(this.chaseSpeed + dx * 1f);
-            if (dy > 0f) chaseSpeedY = Mathf.Clamp01(this.chaseSpeed + dy * 1f);
-            var chaseSpeed = Mathf.Max(this.chaseSpeed, chaseSpeedX, chaseSpeedY);
+            if (dx > 0f) chaseSpeedX = Mathf.Clamp01(chaseSpeed + dx * 1f);
+            if (dy > 0f) chaseSpeedY = Mathf.Clamp01(chaseSpeed + dy * 1f);
+            var chaseSpeed2 = Mathf.Max(chaseSpeed, chaseSpeedX, chaseSpeedY);
 
             var dist = center - camera.transform.position;
 
-            camera.transform.position += chaseSpeed * dist;
+            camera.transform.position += chaseSpeed2 * dist;
         }
+    }
 
+    public void GridUpdate(Camera camera, Renderer grid, Material gridMaterial)
+    {
         if (gridOption.enabled != grid.enabled)
         {
             grid.enabled = gridOption.enabled;

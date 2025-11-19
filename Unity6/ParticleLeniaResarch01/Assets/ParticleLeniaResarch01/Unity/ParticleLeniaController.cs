@@ -1,30 +1,67 @@
 using Assets.ParticleLeniaResarch01.Scripts.Data;
+using Assets.ParticleLeniaResarch01.Scripts.Fields;
 using Assets.ParticleLeniaResarch01.Scripts.Initializers;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 
 public class ParticleLeniaController : MonoBehaviour
 {
-    public PLColorModeController colorModeController;
-    public PLCameraModeController cameraModeController;
+    public class Serializer : IParticleFieldsSerializer
+    {
+        public static Serializer Instance { get; } = new Serializer();
+
+        public IParticleFields Read(string text)
+        {
+            return new ParticleFieldsOriginal(JsonUtility.FromJson<ParticleFieldsOriginal.State>(text));
+        }
+
+        public string Write(IParticleFields fields)
+        {
+            return JsonUtility.ToJson(((ParticleFieldsOriginal)fields).GetState());
+        }
+    }
+
+    [Serializable]
+    public class PlayerOptions
+    {
+        public bool isPlay;
+        public int seedIncrement = 1;
+
+        [Min(1)]
+        public int stepParFrame = 1;
+    }
+
+    public PLViewModeController viewModeController;
+    public PLCameraController cameraController;
     public GameObject particlePrefab;
-    public bool isPlay;
-    public int seedIncrement = 1;
-    public bool updateRecord;
-    public ParticleInfoArray.Record lastRecord;
+    public PlayerOptions playerOptions;
+    //public bool updateTimeLine;
+    //public bool viewTimeLine;
+    //public ParticleLeniaTimeLine.Record timeLine;
 
-    [Min(1)]
-    public int step = 1;
-
-    public OriginalInitializer.State options;
+    public OriginalInitializer.State simulationOptions;
 
     private List<PLParticleController> particles;
 
     private ParticleLeniaSimulation simulation;
 
+    private void Awake()
+    {
+        viewModeController = viewModeController != null ? viewModeController : FindFirstObjectByType<PLViewModeController>();
+        cameraController = cameraController != null ? cameraController : FindFirstObjectByType<PLCameraController>();
+        cameraController.Awake();
+    }
+
     private void OnEnable()
     {
-        Debug.Log("testA");
+        viewModeController = viewModeController != null ? viewModeController : FindFirstObjectByType<PLViewModeController>();
+        cameraController = cameraController != null ? cameraController : FindFirstObjectByType<PLCameraController>();
+
         var oldParticles = GetComponentsInChildren<PLParticleController>();
         foreach (var p in oldParticles)
         {
@@ -34,7 +71,7 @@ public class ParticleLeniaController : MonoBehaviour
         simulation = new();
         particles = new();
         var initializer = new OriginalInitializer();
-        initializer.SetState(options);
+        initializer.SetState(simulationOptions);
         simulation.Initializer = initializer;
         SimulationInit();
     }
@@ -44,28 +81,46 @@ public class ParticleLeniaController : MonoBehaviour
     {
         if (Input.GetKeyUp(KeyCode.Space))
         {
-            isPlay = !isPlay;
+            playerOptions.isPlay = !playerOptions.isPlay;
         }
 
         if (Input.GetKeyUp(KeyCode.R))
         {
-            options.seed += seedIncrement;
+            simulationOptions.seed += playerOptions.seedIncrement;
             SimulationInit();
         }
 
-        if (isPlay)
+        if (Input.GetKeyUp(KeyCode.S))
         {
-            colorModeController.ColorReset();
-            simulation.Next(step);
+            string json = JsonUtility.ToJson(simulation.TimeLine.ToRecord(Serializer.Instance), true);
+
+            var date = DateTime.Now.ToShortString();
+            var filePath = EditorUtility.SaveFilePanel("Save TimeLine", "Assets", $"ParticleLenia_TimeLine_{date}", "json");
+
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                File.WriteAllText(filePath, json, Encoding.UTF8);
+            }
+        }
+
+        if (playerOptions.isPlay)
+        {
+            viewModeController.ColorReset();
+            simulation.Next(playerOptions.stepParFrame, false);
 
             var result = simulation.GetResult();
-            LastRecordUpdate(result);
             foreach (var p in result.Array)
             {
-                colorModeController.ColorUpdate(p);
+                viewModeController.ColorUpdate(p);
             }
-            LastRecordUpdate(result);
         }
+
+        /*
+        if (viewTimeLine)
+        {
+            LastRecordUpdate(simulation.TimeLine);
+        }
+        */
     }
 
     private void SimulationInit()
@@ -79,26 +134,29 @@ public class ParticleLeniaController : MonoBehaviour
         simulation.Init();
         var result = simulation.GetResult();
 
-        colorModeController.ColorReset();
+        viewModeController.ColorReset();
         for (int i = 0; i < result.Array.Length; i++)
         {
             var go = Instantiate(particlePrefab, transform);
             var ctrl = go.GetComponent<PLParticleController>();
-            ctrl.Setup(result[i], colorModeController);
+            ctrl.Setup(result[i], viewModeController);
             particles.Add(ctrl);
-            colorModeController.ColorUpdate(result[i]);
+            viewModeController.ColorUpdate(result[i]);
         }
 
-        cameraModeController.Setup(particles);
-        LastRecordUpdate(result);
+        cameraController.Setup(particles);
+        LastRecordUpdate(simulation.TimeLine);
     }
 
-    private void LastRecordUpdate(ParticleInfoArray raw)
+    private void LastRecordUpdate(ParticleLeniaTimeLine raw)
     {
-        if (updateRecord)
+        /*
+        if (timeLine.TimeLine.Count < raw.TimeLine.Count)
         {
-            lastRecord = raw.ToRecord(e => JsonUtility.ToJson(e));
+            timeLine.TimeLine.Clear();
+            timeLine.TimeLine.AddRange(raw.TimeLine.Select(e => e.ToRecord(Serializer.Instance)));
         }
+        */
     }
 
     [SerializeField]
@@ -111,24 +169,7 @@ public class ParticleLeniaController : MonoBehaviour
 
     private void OnValidate()
     {
-        options ??= new();
-        if (_oldAutoWk != options.autoWk)
-        {
-            if (options.autoWk)
-            {
-                _oldWk = options.fields.wk;
-            }
-            else
-            {
-                options.fields.wk = _oldWk;
-            }
-            _oldAutoWk = options.autoWk;
-        }
-
-        if (options.autoWk)
-        {
-            var k = options.fields.kernelGauss;
-            options.fields.wk = OriginalInitializer.CalcW(k.mu, k.sigma, options.dimensions);
-        }
+        simulationOptions ??= new();
+        simulationOptions.OnValidate(ref _oldAutoWk, ref _oldWk);
     }
 }
