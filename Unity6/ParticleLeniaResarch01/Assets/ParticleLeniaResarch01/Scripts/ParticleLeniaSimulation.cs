@@ -1,13 +1,21 @@
-using Assets.MathNet.Numerics.Custom;
 using Assets.ParticleLenia.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Fields;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Assets.ParticleLeniaResarch01.Scripts.Data;
+using UnityEngine.UIElements;
+using System.Globalization;
+using UnityEngine;
+using MathNet.Numerics;
+using Assets.Packages.MathNet.Numerics.Custom;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.Data
 {
     public sealed class ParticleLeniaSimulation : IParticleLenia, Grad.IValueAtPoint<IParticleFields>
     {
+        private const int DEFAULT_Thread_Count = 10;
+
         /// <summary>
         /// 計算量とメモリアロケーション削減のための資源
         /// </summary>
@@ -38,6 +46,8 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             public double DeltaTime { get; private set; }
             public Span2D<double> Positions => new(positions, ParticleCount, Dimensions);
             public DistanceCache Distances => new(distances, Positions);
+
+            public Task[] threads = new Task[DEFAULT_Thread_Count];
 
             public CulcSource(IParticleLeniaInitializer initializer)
             {
@@ -89,16 +99,25 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             }
         }
 
+        public int ThreadCount
+        {
+            get => source.threads.Length;
+            set
+            {
+                if (value != source.threads.Length)
+                {
+                    source.threads = new Task[value];
+                }
+            }
+        }
+
         private CulcSource source;
         private readonly Grad grad = new();
-
-        private readonly Task[] multiThreadTasks = new Task[10];
 
         public IParticleLeniaInitializer Initializer { get; set; }
 
         public string Description => "Particle Lenia original simulation";
 
-        public ParticleLeniaTimeLine TimeLine { get; private set; }
         public int CurrentStep { get; private set; }
         public int ParticleCount => source.ParticleCount;
         public int Dimensions => source.Dimensions;
@@ -113,7 +132,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             return source.lastResult;
         }
 
-        public void Next(int step, bool updateTimeLine)
+        public DistanceCache LastDistances => source.Distances;
+
+        public void Next(int step, IParticleLenia.PostAction intermediatePostAction, IParticleLenia.PostAction lastPostAction)
         {
             if (step <= 0) throw new ArgumentOutOfRangeException(nameof(step));
 
@@ -123,15 +144,18 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
                 CurrentStep = 0;
             }
 
-            for (int i = 0; i < step; i++)
+            for (int i = 0; i < step - 1; i++)
             {
-                Step(updateTimeLine);
+                Step(intermediatePostAction);
             }
+
+            Step(lastPostAction);
         }
 
-        public void Init()
+        public void Init(IParticleLenia.PostAction postAction)
         {
-            TimeLine = new ParticleLeniaTimeLine(Description);
+            Control.UseBestProviders();
+
             source = new CulcSource(Initializer);
             CurrentStep = 0;
 
@@ -145,14 +169,16 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
                 pInfo.lastGt = gt;
                 pInfo.lastRt = rt;
                 pInfo.lastUt = ut;
+                postAction?.Invoke(pInfo, i);
             }
 
             source.lastResult.Step = CurrentStep;
             source.lastResult.Time = CurrentTime;
         }
 
-        private void Step(bool updateTimeLine)
+        private void Step(IParticleLenia.PostAction postAction)
         {
+            const int BLOCK_SIZE_MIN = 10;
             var nextResult = source.tempResult;
             var lastResult = source.lastResult;
 
@@ -160,21 +186,34 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             var distances = Distances;
             distances.Reset();
 
-            for (int i = 0; i < ParticleCount; i++)
+            if (postAction == null)
             {
-                var lastInfo = lastResult[i];
-                var lastPosition = lastInfo.position;
-                var nextInfo = nextResult[i];
-                var nextPosition = nextInfo.position;
-
-                GetUtAndRt(out var ut, out var rt, lastResult.Array, distances, i);
-                var gt = lastInfo.fields.G(ut);
-                nextInfo.lastGt = gt;
-                nextInfo.lastRt = rt;
-                nextInfo.lastUt = ut;
-
-                PositionUpdate(lastPosition, nextPosition, lastInfo.fields);
-                nextPosition.CopyTo(positions[i]);
+                if (ParticleCount < ThreadCount * BLOCK_SIZE_MIN)
+                {
+                    for (int i = 0; i < ParticleCount; i++)
+                    {
+                        StepForParticle(i, nextResult, lastResult, positions, distances);
+                    }
+                }
+                else
+                {
+                    ParallelStep(StepForParticle);
+                }
+            }
+            else
+            {
+                if (ParticleCount < ThreadCount * BLOCK_SIZE_MIN)
+                {
+                    for (int i = 0; i < ParticleCount; i++)
+                    {
+                        var nextInfo = StepForParticle(i, nextResult, lastResult, positions, distances);
+                        postAction.Invoke(nextInfo, i);
+                    }
+                }
+                else
+                {
+                    ParallelStep((start, end) => StepForParticle(start, end, postAction));
+                }
             }
 
             source.lastResult = nextResult;
@@ -184,56 +223,96 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 
             source.lastResult.Step = CurrentStep;
             source.lastResult.Time = CurrentTime;
-
-            if (updateTimeLine)
-            {
-                var result = source.lastResult;
-                var newResult = new ParticleInfoArray(result.Array.ToArray(), result.Time, result.Step);
-                TimeLine.TimeLine.Add(newResult);
-            }
         }
 
-        private void Multi()
+        private void ParallelStep(Action<int, int> stepForParticle)
         {
-            var distances = source.distances;
+            int block = ParticleCount / ThreadCount;
+            int next = 0;
+            for (int i = 0; i < ThreadCount - 1; i++)
+            {
+                var end = next + block;
+                var _next = next;
+                source.threads[i] = Task.Run(() =>
+                {
+                    try
+                    {
+                        stepForParticle(_next, end);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                    }
+                });
 
+                next = end;
+            }
+
+            if (next < ParticleCount)
+            {
+                source.threads[^1] = Task.Run(() =>
+                {
+                    try
+                    {
+                        stepForParticle(next, ParticleCount);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                    }
+                });
+            }
+
+            Task.WhenAll(source.threads).Wait();
+        }
+
+        private void StepForParticle(int start, int end)
+        {
             var nextResult = source.tempResult;
             var lastResult = source.lastResult;
-            int block = ParticleCount / multiThreadTasks.Length;
-            int start = 0;
-            for (int i = 0; i < multiThreadTasks.Length - 1; i++)
+            var positions = Positions;
+            var distances = Distances;
+
+            for (int i = start; i < end; i++)
             {
-                var _start = start;
-                var _end = start + block;
-                multiThreadTasks[i] = Task.Run(() =>
-                {
-                    Excute(_start, _end);
-                });
-
-                start = _end;
-            }
-
-            {
-                multiThreadTasks[^1] = Task.Run(() =>
-                {
-                    Excute(start, ParticleCount);
-                });
-            }
-
-            Task.WhenAll(multiThreadTasks).Wait();
-
-            void Excute(int start, int end)
-            {
-                var positions = new Span2D<double>(source.positions, ParticleCount, Dimensions);
-                var vr = new DistanceCache(distances, positions);
-
-                for (int i = start; i < end; i++)
-                {
-                }
+                StepForParticle(i, nextResult, lastResult, positions, distances);
             }
         }
 
-        public void PositionUpdate(ReadOnlySpan<double> oldPosition, Span<double> newPosition, IParticleFields particleFields)
+        private void StepForParticle(int start, int end, IParticleLenia.PostAction postAction)
+        {
+            var nextResult = source.tempResult;
+            var lastResult = source.lastResult;
+            var positions = Positions;
+            var distances = Distances;
+
+            for (int i = start; i < end; i++)
+            {
+                var nextInfo = StepForParticle(i, nextResult, lastResult, positions, distances);
+                postAction.Invoke(nextInfo, i);
+            }
+        }
+
+        private ParticleInfo StepForParticle(int index, ParticleInfoArray nextResult, ParticleInfoArray lastResult, Span2D<double> positions, DistanceCache distances)
+        {
+            var lastInfo = lastResult[index];
+            var lastPosition = lastInfo.position;
+            var nextInfo = nextResult[index];
+            var nextPosition = nextInfo.position;
+
+            GetUtAndRt(out var ut, out var rt, lastResult.Array, distances, index);
+            var gt = lastInfo.fields.G(ut);
+            nextInfo.lastGt = gt;
+            nextInfo.lastRt = rt;
+            nextInfo.lastUt = ut;
+
+            PositionUpdate(lastPosition, nextPosition, lastInfo.fields);
+            nextPosition.CopyTo(positions[index]);
+
+            return nextInfo;
+        }
+
+        private void PositionUpdate(ReadOnlySpan<double> oldPosition, Span<double> newPosition, IParticleFields particleFields)
         {
             Span<double> dpPosition = stackalloc double[Dimensions];
 
@@ -245,7 +324,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             }
         }
 
-        public void GetUtAndRt(out double ut, out double rt, Span<ParticleInfo> source, ReadOnlySpan<double> point)
+        private void GetUtAndRt(out double ut, out double rt, Span<ParticleInfo> source, ReadOnlySpan<double> point)
         {
             ut = 0.0;
             rt = 0.0;
@@ -260,7 +339,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             }
         }
 
-        public void GetUtAndRt(out double ut, out double rt, Span<ParticleInfo> source, DistanceCache vr, int index)
+        private void GetUtAndRt(out double ut, out double rt, Span<ParticleInfo> source, DistanceCache vr, int index)
         {
             ut = 0.0;
             rt = 0.0;
@@ -283,13 +362,13 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             }
         }
 
-        public double GetEnergyAt(ReadOnlySpan<double> point, IParticleFields particleFields)
+        private double GetEnergyAt(ReadOnlySpan<double> point, IParticleFields particleFields)
         {
             GetUtAndRt(out var ut, out var rt, source.lastResult.Array, point);
             return rt - particleFields.G(ut);
         }
 
-        public double GetValueAt(ReadOnlySpan<double> point, IParticleFields particleFields)
+        double Grad.IValueAtPoint<IParticleFields>.GetValueAt(ReadOnlySpan<double> point, IParticleFields particleFields)
         {
             return GetEnergyAt(point, particleFields);
         }

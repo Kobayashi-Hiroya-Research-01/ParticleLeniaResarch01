@@ -1,3 +1,4 @@
+using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System;
 using UnityEngine;
@@ -12,31 +13,7 @@ public class PLViewModeController : MonoBehaviour
         GtRt,
         Ut,
         Solid,
-    }
-
-    [Serializable]
-    public class MinMax
-    {
-        public float min;
-        public float max;
-
-        public MinMax(float min, float max)
-        {
-            this.min = min;
-            this.max = max;
-        }
-
-        public void Reset()
-        {
-            min = float.MaxValue;
-            max = float.MinValue;
-        }
-
-        public void Update(float value)
-        {
-            if (value < min) min = value;
-            if (value > max) max = value;
-        }
+        Cluster
     }
 
     [Serializable]
@@ -109,51 +86,60 @@ public class PLViewModeController : MonoBehaviour
     [Range(0f, 1f)]
     public float coreSize = 1.0f;
 
-    public bool autoRange = true;
-
-    public MinMax eMinMax = new(0, 1);
-    public MinMax rtMinMax = new(0, 1);
-    public MinMax gtMinMax = new(0, 1);
-    public MinMax utMinMax = new(0, 1);
-
     public AfterEffectOptions afterEffectOptions;
 
-    public void ColorReset()
-    {
-        if (autoRange)
-        {
-            eMinMax.Reset();
-            rtMinMax.Reset();
-            gtMinMax.Reset();
-            utMinMax.Reset();
-        }
-    }
-
-    public void ColorUpdate(ParticleInfo particle)
-    {
-        if (autoRange)
-        {
-            var e = (float)particle.LastE;
-            var g = (float)particle.lastGt;
-            var r = (float)particle.lastRt;
-            var u = (float)particle.lastUt;
-            eMinMax.Update(e);
-            gtMinMax.Update(g);
-            rtMinMax.Update(r);
-            utMinMax.Update(u);
-        }
-    }
-
-    public Color GetColor(ParticleInfo info)
+    public Color GetColor(ParticleInfo info, ClusterInfo clusterInfo, PLMinMax plMinMax)
     {
         switch (colorMode)
         {
             case ColorMode.Solid:
                 return solidColor;
 
+            case ColorMode.Cluster:
+
+                var id = clusterInfo.clusterID.Value;
+                if (id < 0) return Color.gray2;
+
+                // ‰ºˆÊ2bit (0 to 3)
+                var low = id & 0x03;
+
+                // ãˆÊ14bit
+                var high = id >> 2;
+
+                float h = high * (1f / 16.123456789f);
+                h = h % 1.0f;
+
+                float s, v;
+
+                switch (low)
+                {
+                    default:
+                    case 0:
+                        s = 0.5f;
+                        v = 1.0f;
+                        break;
+
+                    case 1:
+                        s = 1.0f;
+                        v = 1.0f;
+                        break;
+
+                    case 2:
+                        s = 1.0f;
+                        v = 0.75f;
+                        break;
+
+                    case 3:
+                        s = 1.0f;
+                        v = 0.5f;
+                        break;
+                }
+
+                return Color.HSVToRGB(h, s, v);
+
             case ColorMode.GtRt:
-                var rateGt = GetRate(info, ColorMode.Gt);
-                var rateRt = GetRate(info, ColorMode.Rt);
+                var rateGt = GetRate(info, ColorMode.Gt, plMinMax);
+                var rateRt = GetRate(info, ColorMode.Rt, plMinMax);
 
                 var colorGt = gtGradient.Evaluate(rateGt);
                 var colorRt = rtGradient.Evaluate(rateRt);
@@ -161,7 +147,7 @@ public class PLViewModeController : MonoBehaviour
                 return colorGt + colorRt;
         }
 
-        var rate = GetRate(info);
+        var rate = GetRate(info, plMinMax);
 
         return colorMode switch
         {
@@ -173,15 +159,15 @@ public class PLViewModeController : MonoBehaviour
         };
     }
 
-    public float GetRate(ParticleInfo info)
+    public float GetRate(ParticleInfo info, PLMinMax plMinMax)
     {
-        return GetRate(info, colorMode);
+        return GetRate(info, colorMode, plMinMax);
     }
 
-    public float GetRate(ParticleInfo info, ColorMode colorMode)
+    public float GetRate(ParticleInfo info, ColorMode colorMode, PLMinMax plMinMax)
     {
         float value;
-        MinMax minMax;
+        PLMinMax.MinMax minMax;
 
         switch (colorMode)
         {
@@ -190,22 +176,22 @@ public class PLViewModeController : MonoBehaviour
 
             case ColorMode.E:
                 value = (float)info.LastE;
-                minMax = eMinMax;
+                minMax = plMinMax.eMinMax;
                 break;
 
             case ColorMode.Rt:
                 value = (float)info.lastRt;
-                minMax = rtMinMax;
+                minMax = plMinMax.rtMinMax;
                 break;
 
             case ColorMode.Gt:
                 value = (float)info.lastGt;
-                minMax = gtMinMax;
+                minMax = plMinMax.gtMinMax;
                 break;
 
             case ColorMode.Ut:
                 value = (float)info.lastUt;
-                minMax = utMinMax;
+                minMax = plMinMax.utMinMax;
                 break;
 
             default:
@@ -214,7 +200,7 @@ public class PLViewModeController : MonoBehaviour
 
         var range = minMax.max - minMax.min;
         if (range == 0.0f) return 0.0f;
-        var rate = Mathf.Clamp01((value - minMax.min) / range);
+        var rate = Mathf.Clamp01((float)((value - minMax.min) / range));
         return rate;
     }
 

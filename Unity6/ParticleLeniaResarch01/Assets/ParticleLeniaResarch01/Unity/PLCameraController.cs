@@ -8,9 +8,9 @@ public class PLCameraController : MonoBehaviour
     public new Camera camera;
     public Renderer grid;
 
-    public void Setup(List<PLParticleController> particles)
+    public void SimulationInit(PLMinMax minMax)
     {
-        modeController.Setup(particles);
+        modeController.Setup(minMax);
     }
 
     public void Awake()

@@ -1,3 +1,5 @@
+using System;
+
 namespace Assets.ParticleLeniaResarch01.Scripts.Data
 {
     /// <summary>
@@ -5,7 +7,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
     /// </summary>
     public interface IParticleLenia
     {
-        ParticleLeniaTimeLine TimeLine { get; }
+        public delegate void PostAction(ParticleInfo newInfo, int index);
 
         /// <summary>
         /// シミュレーション詳細の説明
@@ -28,10 +30,16 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         IParticleLeniaInitializer Initializer { get; set; }
 
         /// <summary>
+        /// 初期化
+        /// </summary>
+        /// <param name="postAction"></param>
+        void Init(PostAction postAction);
+
+        /// <summary>
         /// ステップの更新
         /// </summary>
         /// <param name="step"></param>
-        void Next(int step, bool updateTimeLine);
+        void Next(int step, PostAction intermediatePostAction, PostAction lastPostAction);
 
         /// <summary>
         /// 現在の粒子状態

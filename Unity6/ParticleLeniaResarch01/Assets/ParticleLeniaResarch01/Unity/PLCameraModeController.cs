@@ -22,27 +22,30 @@ public class PLCameraModeController : MonoBehaviour
     [Range(0.001f, 1f)]
     public float chaseSpeed;
 
-    private List<PLParticleController> particles;
+    public Vector2 offset;
 
-    public void Setup(List<PLParticleController> particles)
+    private Vector2? defaultOffset;
+
+    [Min(0.001f)]
+    public float scale = 10f;
+
+    private PLMinMax minMax;
+
+    public void Setup(PLMinMax minMax)
     {
-        this.particles = particles;
+        this.minMax = minMax;
     }
 
     public void CameraUpdate(Camera camera)
     {
-        if (chaseCenter && particles != null && particles.Count > 0)
+        if (defaultOffset == null) defaultOffset = camera.transform.position;
+
+        if (chaseCenter && minMax != null)
         {
-            var n = particles.Count;
-            var center = Vector3.zero;
+            var center = new Vector3((float)minMax.xMinMax.Center, (float)minMax.yMinMax.Center);
 
-            foreach (var particle in particles)
-            {
-                center.x += particle.transform.position.x;
-                center.y += particle.transform.position.y;
-            }
-
-            center = 1.0f / n * center;
+            center.x += defaultOffset.Value.x + offset.x;
+            center.y += defaultOffset.Value.y + offset.y;
             center.z = camera.transform.position.z;
 
             var center_view = camera.WorldToViewportPoint(center) - new Vector3(0.5f, 0.5f, 0.0f);
@@ -57,6 +60,7 @@ public class PLCameraModeController : MonoBehaviour
             var dist = center - camera.transform.position;
 
             camera.transform.position += chaseSpeed2 * dist;
+            camera.orthographicSize = scale;
         }
     }
 

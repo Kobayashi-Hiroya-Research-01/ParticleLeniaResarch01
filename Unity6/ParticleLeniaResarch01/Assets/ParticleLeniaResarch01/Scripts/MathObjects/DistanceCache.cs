@@ -1,4 +1,5 @@
 ﻿using System;
+using UnityEngine;
 
 namespace Assets.ParticleLenia.Scripts
 {
@@ -7,13 +8,16 @@ namespace Assets.ParticleLenia.Scripts
         public readonly Span<double> distances;
         public readonly Span2D<double> positions;
 
+        public int PointCount => positions.length1;
+        public int DimCount => positions.length2;
+
         /// <summary>
         ///
         /// </summary>
         /// <param name="distances">result : GetCombinationLength() でサイズを取得して初期化してください。</param>
         /// <param name="positions">length1 = 粒子数, length2 = 次元数</param>
         ///
-        public DistanceCache(Span<double> distances, Span2D<double> positions)
+        public DistanceCache(Span<double> distances, in Span2D<double> positions)
         {
             if (distances.Length != GetCombinationLength(positions.length1))
             {
@@ -53,19 +57,27 @@ namespace Assets.ParticleLenia.Scripts
             return distance;
         }
 
-        public static int GetCombinationLength(int length1)
+        public static int GetCombinationLength(int length)
         {
-            return (length1 * (length1 - 1)) >> 1;
+            //return GetCombinationIndex(length1 - 1, length1 - 2) + 1;
+            return ((length - 1) * length) >> 1;
         }
 
         public static int GetCombinationIndex(int indexA, int indexB)
         {
+            int max, range;
             if (indexA < indexB)
             {
-                (indexB, indexA) = (indexA, indexB);
+                max = indexB;
+                range = indexB - indexA;
+            }
+            else
+            {
+                max = indexA;
+                range = indexA - indexB;
             }
 
-            return (indexA * (indexA + 1) >> 1) - indexA + indexB;
+            return (max * (max + 1) >> 1) - range;
         }
 
         public static double Distance(ReadOnlySpan<double> a, ReadOnlySpan<double> b)

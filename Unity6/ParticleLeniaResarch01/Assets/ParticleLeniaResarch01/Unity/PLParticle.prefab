@@ -214,6 +214,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2723032735337632341}
   - component: {fileID: 6764427186231638490}
+  - component: {fileID: 1110451475563817720}
   m_Layer: 0
   m_Name: PLParticle
   m_TagString: Untagged
@@ -251,12 +252,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6e553892e70e6442b65b4a9d1faf39c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PLParticleController
+  particleIndex: -1
   heatMapU: {fileID: 4400809236177827342}
   heatMapR: {fileID: 2415879667382459221}
   core: {fileID: 6251467662132423860}
+  clusterInfo: {fileID: 1110451475563817720}
   e: 0
   g: 0
   r: 0
+--- !u!114 &1110451475563817720
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2253794128707804095}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54738e00ad14bf14c9d6418e3d0ccedb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  clusterInfoList: []
+  iDList: 
 --- !u!1 &7136468291817323533
 GameObject:
   m_ObjectHideFlags: 0
