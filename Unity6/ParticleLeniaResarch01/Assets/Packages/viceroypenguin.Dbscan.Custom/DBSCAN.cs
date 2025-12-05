@@ -4,6 +4,9 @@
 using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Drawing;
+using System.Linq;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -28,14 +31,6 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         public void AddPoint(T data)
         {
             pointInfos.List.Add(new PointInfo<T>(data));
-        }
-
-        private void OnFind(PointInfo<T> pInfo)
-        {
-            if (!pInfo.Visited)
-            {
-                queue.Enqueue(pInfo);
-            }
         }
 
         public ClusterSet<T> CalculateClusters(Action<T, ClusterID> onClustered)
@@ -105,12 +100,20 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 if (!newPoint.Clustered)
                 {
                     newPoint.Clustered = true;
-                    onClustered(newPoint.Item, clusterID);
+                    onClustered?.Invoke(newPoint.Item, clusterID);
                     objects.Add(newPoint.Item);
                 }
             }
 
             return new Cluster<T>(clusterID, objects);
+        }
+
+        private void OnFind(PointInfo<T> pInfo)
+        {
+            if (!pInfo.Visited)
+            {
+                queue.Enqueue(pInfo);
+            }
         }
     }
 }

@@ -3554,16 +3554,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e8694231a4c9544d89cbdf4b3dddf5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  pointMode: 0
   clusterInfoIndex: 0
   mimmax: {fileID: 1727290290}
   minPtr: 2
-  eps: 1.4142135623731
-  utWeight: 6
-  rtWeight: 6
+  eps: 2
+  utWeight: 1
+  rtWeight: 1
+  utRtWeightNormalizeWithPosRange: 1
   continuousRatio: 0.49000000953674316
   trackingMode: 1
   debugData:
     clusterCount: 0
+    calcLifeTime: 0
+    lifeTime: []
+    silhouetteCoefficient: 0
+    calcSilhouetteCoefficient: 0
 --- !u!1 &361345794
 GameObject:
   m_ObjectHideFlags: 0
@@ -4826,16 +4832,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e8694231a4c9544d89cbdf4b3dddf5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  pointMode: 0
   clusterInfoIndex: 1
   mimmax: {fileID: 1727290290}
   minPtr: 2
-  eps: 3
-  utWeight: 6
-  rtWeight: 6
+  eps: 4
+  utWeight: 1
+  rtWeight: 1
+  utRtWeightNormalizeWithPosRange: 1
   continuousRatio: 0.49000000953674316
   trackingMode: 1
   debugData:
     clusterCount: 0
+    calcLifeTime: 0
+    lifeTime: []
+    silhouetteCoefficient: 0
+    calcSilhouetteCoefficient: 0
 --- !u!1 &533796965
 GameObject:
   m_ObjectHideFlags: 0
@@ -5059,14 +5071,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 15117014}
     m_Modifications:
-    - target: {fileID: 1110451475563817720, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
-      propertyPath: iDList.Array.size
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1110451475563817720, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
-      propertyPath: clusterInfoList.Array.size
-      value: 2
-      objectReference: {fileID: 0}
     - target: {fileID: 2253794128707804095, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
       propertyPath: m_Name
       value: PLParticle
@@ -5985,7 +5989,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9839,7 +9843,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -18872,8 +18876,8 @@ RectTransform:
   - {fileID: 644739159}
   - {fileID: 2094450382}
   - {fileID: 648287039}
-  - {fileID: 637148279}
   - {fileID: 720745703}
+  - {fileID: 637148279}
   m_Father: {fileID: 553668260}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -19153,9 +19157,9 @@ MonoBehaviour:
       m_Suffix: ...
     m_Data: []
     m_Icons:
-    - {fileID: 0}
-    - {fileID: 0}
     - {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+    - {fileID: 0}
+    - {fileID: 0}
     m_Colors: []
     m_Background:
       m_Show: 0

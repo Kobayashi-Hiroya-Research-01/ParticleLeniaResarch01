@@ -117,22 +117,18 @@ public class ParticleLeniaController : MonoBehaviour
             SimulationInit();
         }
 
-        if (playerOptions.isPlay)
+        if (playerOptions.isPlay || Input.GetKeyUp(KeyCode.N))
         {
             utHistController.SimulationInit();
             minMax.SimulationInit();
-            simulation.Next(playerOptions.stepParFrame, IntermediatePostAction, LastPostAction);
-
-            Parallel.ForEach(pLDBSCANs, (pLDBSCAN) =>
-            {
-                pLDBSCAN.UpdateSimulationAfter();
-            });
+            simulation.Next(playerOptions.stepParFrame, IntermediatePostAction, LastPostAction, PostStepAction);
         }
     }
 
     private void IntermediatePostAction(ParticleInfo info, int index)
     {
         minMax.IntermediatePostAction(info);
+        particles[index].InfoUpdate(info);
         //ÉåÉRÅ[Éhèàóù
     }
 
@@ -140,6 +136,17 @@ public class ParticleLeniaController : MonoBehaviour
     {
         utHistController.LastPostAction(info);
         minMax.LastPostAction(info);
+        particles[index].InfoUpdate(info);
+    }
+
+    private void PostStepAction()
+    {
+        Parallel.ForEach(pLDBSCANs, PLDBSCANUpdate);
+    }
+
+    private void PLDBSCANUpdate(PLDBSCAN pLDBSCAN)
+    {
+        pLDBSCAN.UpdateSimulationAfter();
     }
 
     private void SimulationInit()
@@ -157,12 +164,9 @@ public class ParticleLeniaController : MonoBehaviour
         {
             e.SimulationInit();
         }
-        simulation.Init(InitPostAction);
 
-        foreach (var pLDBSCAN in pLDBSCANs)
-        {
-            pLDBSCAN.UpdateSimulationAfter();
-        }
+        simulation.Init(InitPostAction);
+        PostStepAction();
     }
 
     private void InitPostAction(ParticleInfo info, int index)

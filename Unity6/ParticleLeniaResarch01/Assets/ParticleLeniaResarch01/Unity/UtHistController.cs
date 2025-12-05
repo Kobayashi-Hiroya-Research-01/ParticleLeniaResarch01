@@ -137,14 +137,14 @@ public class UtHistController : MonoBehaviour
         {
             var px = particleInfo.position[0];
             var py = particleInfo.position[1];
-            var pos = new List<double>() { ut_01, Math.Sqrt(px * px + py * py) };
+            var pos = new List<double>() { ut_01, px + py * 100 };
             uteData.Add(new SerieData() { data = pos });
         }
         else
         {
             var px = particleInfo.position[0];
             var py = particleInfo.position[1];
-            var pos = new List<double>() { particleInfo.lastUt, Math.Sqrt(px * px + py * py) };
+            var pos = new List<double>() { particleInfo.lastUt, px + py * 100 };
             uteData.Add(new SerieData() { data = pos, itemStyle = { color = Color.blue } });
         }
 

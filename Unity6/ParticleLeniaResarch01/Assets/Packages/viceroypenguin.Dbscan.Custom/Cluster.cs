@@ -11,7 +11,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// A collection of items that have been clustered by the algorithm.
     /// </summary>
     /// <typeparam name="T">The type of elements in the cluster.</typeparam>
-    public class Cluster<T> : IReadOnlyList<T>
+    public class Cluster<T> : IReadOnlyList<T> where T : IPointData
     {
         public ClusterID ClusterID { get; }
 

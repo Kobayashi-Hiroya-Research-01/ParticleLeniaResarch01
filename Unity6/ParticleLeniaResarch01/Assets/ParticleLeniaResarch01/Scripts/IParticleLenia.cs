@@ -7,7 +7,9 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
     /// </summary>
     public interface IParticleLenia
     {
-        public delegate void PostAction(ParticleInfo newInfo, int index);
+        public delegate void PostParticleAction(ParticleInfo newInfo, int index);
+
+        public delegate void PostStepAction();
 
         /// <summary>
         /// シミュレーション詳細の説明
@@ -33,13 +35,13 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         /// 初期化
         /// </summary>
         /// <param name="postAction"></param>
-        void Init(PostAction postAction);
+        void Init(PostParticleAction postAction);
 
         /// <summary>
         /// ステップの更新
         /// </summary>
         /// <param name="step"></param>
-        void Next(int step, PostAction intermediatePostAction, PostAction lastPostAction);
+        void Next(int step, PostParticleAction intermediatePostAction, PostParticleAction lastPostAction, PostStepAction postStepAction);
 
         /// <summary>
         /// 現在の粒子状態

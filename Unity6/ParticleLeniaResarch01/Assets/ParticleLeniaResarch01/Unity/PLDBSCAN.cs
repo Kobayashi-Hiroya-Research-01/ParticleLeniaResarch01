@@ -5,15 +5,58 @@ using Assets.ParticleLeniaResarch01.Analysis;
 using System;
 using System.Collections.ObjectModel;
 using Assets.Packages.viceroypenguin.Dbscan.Custom;
+using static UnityEngine.Rendering.DebugUI;
+using System.Security.Cryptography;
+using UnityEngine.Rendering.Universal;
+using static PLMinMax;
 
 public class PLDBSCAN : MonoBehaviour
 {
     [Serializable]
+    public class LifeTime
+    {
+        public int id;
+        public int lifeTime;
+    }
+
+    [Serializable]
     public class DebugData
     {
         public int clusterCount;
+        public bool calcLifeTime;
+        public LifeTime[] lifeTime;
+        public double silhouetteCoefficient;
+        public bool calcSilhouetteCoefficient;
+
+        public void Update(ClusterSet<Point> oldSet)
+        {
+            clusterCount = oldSet.Count;
+            if (calcLifeTime)
+            {
+                lifeTime = oldSet.OrderByDescendingCountClusters
+                    .Select(e => new LifeTime() { id = e.ClusterID.Value, lifeTime = e.ClusterID.LifeTime })
+                    .OrderByDescending(e => e.lifeTime)
+                    .ToArray();
+            }
+
+            if (calcSilhouetteCoefficient)
+            {
+                silhouetteCoefficient = oldSet.SilhouetteCoefficient();
+            }
+        }
     }
 
+    public enum PointMode
+    {
+        UtRt,
+        Ut,
+        E,
+        NoPointUtRt,
+        NoPointUt,
+        NoPointE,
+    }
+
+    public PointMode pointMode;
     public int clusterInfoIndex;
     public PLMinMax mimmax;
 
@@ -29,6 +72,8 @@ public class PLDBSCAN : MonoBehaviour
     [Min(0)]
     public double rtWeight;
 
+    public bool utRtWeightNormalizeWithPosRange;
+
     [Range(0, 1)]
     public double continuousRatio;
 
@@ -39,35 +84,111 @@ public class PLDBSCAN : MonoBehaviour
     private Dbscan<Point> dbscan;
     private ClusterSet<Point> oldSet;
     private int nextID = 0;
+    private Dictionary<int, Dictionary<int, int>> oldIDCountByNewID;
 
-    private class Point : IPointData
+    public class Point : IPointData
     {
         public PLParticleController particle;
         private readonly PLDBSCAN pLDBSCAN;
         private readonly double[] point;
+        private readonly Action updatePoint;
 
         public Point(PLParticleController particle, PLDBSCAN pLDBSCAN)
         {
             this.particle = particle;
             this.pLDBSCAN = pLDBSCAN;
             point = new double[4];
+
+            var particleInfo = particle.ParticleInfo;
+
+            const double DIV_SQRT2 = 0.70710678118654752440084436210485;
+
+            updatePoint = pLDBSCAN.pointMode switch
+            {
+                PointMode.UtRt => () =>
+                {
+                    GetWeights(pLDBSCAN, out var uw, out var rw, out var ew);
+                    point[0] = particleInfo.position[0];
+                    point[1] = particleInfo.position[1];
+                    point[2] = uw * particleInfo.lastUt * DIV_SQRT2;
+                    point[3] = rw * particleInfo.lastRt * DIV_SQRT2;
+                }
+                ,
+                PointMode.Ut => () =>
+                {
+                    GetWeights(pLDBSCAN, out var uw, out var rw, out var ew);
+                    point[0] = particleInfo.position[0];
+                    point[1] = particleInfo.position[1];
+                    point[2] = uw * particleInfo.lastUt;
+                    point[3] = 0;
+                }
+                ,
+                PointMode.E => () =>
+                {
+                    GetWeights(pLDBSCAN, out var uw, out var rw, out var ew);
+                    point[0] = particleInfo.position[0];
+                    point[1] = particleInfo.position[1];
+                    point[2] = ew * particleInfo.LastE;
+                    point[3] = 0;
+                }
+                ,
+                PointMode.NoPointUtRt => () =>
+                {
+                    GetWeights(pLDBSCAN, out var uw, out var rw, out var ew);
+                    point[0] = 0;
+                    point[1] = 0;
+                    point[2] = uw * particleInfo.lastUt * DIV_SQRT2;
+                    point[3] = rw * particleInfo.lastRt * DIV_SQRT2;
+                }
+                ,
+                PointMode.NoPointUt => () =>
+                {
+                    GetWeights(pLDBSCAN, out var uw, out var rw, out var ew);
+                    point[0] = 0;
+                    point[1] = 0;
+                    point[2] = uw * particleInfo.lastUt;
+                    point[3] = 0;
+                }
+                ,
+                PointMode.NoPointE => () =>
+                {
+                    GetWeights(pLDBSCAN, out var uw, out var rw, out var ew);
+                    point[0] = 0;
+                    point[1] = 0;
+                    point[2] = ew * particleInfo.LastE;
+                    point[3] = 0;
+                }
+                ,
+                _ => throw new NotImplementedException(),
+            };
+        }
+
+        private static void GetWeights(PLDBSCAN pLDBSCAN, out double uw, out double rw, out double ew)
+        {
+            var minmax = pLDBSCAN.mimmax;
+            if (pLDBSCAN.utRtWeightNormalizeWithPosRange)
+            {
+                var xyRange = Math.Max(minmax.xMinMax.Range, minmax.yMinMax.Range);
+                uw = xyRange * pLDBSCAN.utWeight / minmax.utMinMax.Range;
+                rw = xyRange * pLDBSCAN.rtWeight / minmax.rtMinMax.Range;
+                ew = xyRange * pLDBSCAN.utWeight / minmax.eMinMax.Range;
+            }
+            else
+            {
+                uw = pLDBSCAN.utWeight / minmax.utMinMax.Range;
+                rw = pLDBSCAN.rtWeight / minmax.rtMinMax.Range;
+                ew = pLDBSCAN.utWeight / minmax.eMinMax.Range;
+            }
         }
 
         Span<double> IPointData.Point
         {
             get
             {
-                var particleInfo = particle.ParticleInfo;
-                var minmax = pLDBSCAN.mimmax;
-                point[0] = particleInfo.position[0];
-                point[1] = particleInfo.position[1];
-                point[2] = minmax.utMinMax.GetRate(pLDBSCAN.utWeight * particleInfo.lastUt);
-                point[3] = minmax.rtMinMax.GetRate(pLDBSCAN.rtWeight * particleInfo.lastRt);
+                updatePoint();
                 return point;
             }
         }
-
-        public ClusterID OldClusterID { get; private set; } = ClusterID.UnclusteredID;
 
         public ClusterID ClusterID
         {
@@ -89,15 +210,14 @@ public class PLDBSCAN : MonoBehaviour
         public void SetClusterID(ClusterID value)
         {
             var list = particle.ClusterInfo.clusterInfoList;
+            var index = pLDBSCAN.clusterInfoIndex;
 
-            while (pLDBSCAN.clusterInfoIndex >= list.Count)
+            while (index >= list.Count)
             {
                 list.Add(new ClusterInfo());
             }
 
-            OldClusterID = list[pLDBSCAN.clusterInfoIndex].clusterID;
-
-            list[pLDBSCAN.clusterInfoIndex].clusterID = value;
+            list[index].clusterID = value;
         }
     }
 
@@ -111,6 +231,8 @@ public class PLDBSCAN : MonoBehaviour
         dbscan ??= new Dbscan<Point>();
         dbscan.Epsilon = eps;
         dbscan.MinimumPointsPerCluster = minPtr;
+
+        UpdateSimulationAfter();
     }
 
     public void SimulationInit()
@@ -127,6 +249,10 @@ public class PLDBSCAN : MonoBehaviour
 
     public void UpdateSimulationAfter()
     {
+        oldSet ??= new ClusterSet<Point>(new List<Cluster<Point>>(), new List<Point>());
+        oldIDCountByNewID ??= new();
+        oldIDCountByNewID.Clear();
+
         var set = dbscan.CalculateClusters(OnClustered);
 
         if (trackingMode)
@@ -138,15 +264,97 @@ public class PLDBSCAN : MonoBehaviour
             UpdateOnlyFrame(set.OrderByDescendingCountClusters);
         }
 
-        debugData.clusterCount = set.Count;
-
         oldSet = set;
         oldSet.UpdateDict();
+
+        debugData.Update(set);
     }
 
     private void OnClustered(Point point, ClusterID clusterID)
     {
+        var oldId = point.ClusterID;
         point.SetClusterID(clusterID);
+
+        if (clusterID == ClusterID.UnclusteredID) return;
+
+        if (!oldIDCountByNewID.TryGetValue(clusterID.Value, out var oldIDCount))
+        {
+            oldIDCountByNewID[clusterID.Value] = oldIDCount = new Dictionary<int, int>();
+        }
+
+        oldIDCount[oldId.Value] = oldIDCount.GetValueOrDefault(oldId.Value) + 1;
+    }
+
+    private void UpdateWhthTracking(ReadOnlyCollection<Cluster<Point>> clusters)
+    {
+        Dictionary<int, Cluster<Point>> trackedClusters = new();
+
+        foreach (var cluster in clusters)
+        {
+            var clusterID = cluster.ClusterID;
+            var oldIDCount = oldIDCountByNewID[clusterID.Value];
+
+            // 条件を満たすもっとも量が多い旧クラスタをトラッキング
+            var trackedID = oldIDCount
+                .Where(values =>
+                {
+                    return oldSet.ContainsKey(values.Key);
+                })
+                .Select(countOld =>
+                {
+                    //新旧クラスタ一致量
+                    var sameCount = countOld.Value;
+                    //旧クラスタ総量
+                    var oldCount = oldSet[countOld.Key].Count;
+
+                    var p = (double)sameCount / oldCount;
+                    var r = (double)sameCount / cluster.Count;
+
+                    return (oldId: countOld.Key, sameCount, p, r);
+                })
+                .Where(values =>
+                {
+                    //Fowlkes-Mallows index
+                    return values.p * values.r >= continuousRatio * continuousRatio;
+
+                    //Fowlkes-Mallows like condition
+                    return values.p >= continuousRatio &&    // 旧クラスタ総量の continuousRatio 倍以上が新クラスタに残っている
+                           values.r >= continuousRatio;      // 旧クラスタ由来量の continuousRatio 倍以上が旧クラスタ由来である
+                })
+                .OrderByDescending(values => values.sameCount)
+                .FirstOrDefault();
+
+            clusterID.LifeTime = 1;
+
+            if (trackedID.sameCount == 0)
+            {
+                cluster.ClusterID.UpdateValue(GetNextID(clusters));
+                //Debug.Log($"New {cluster}");
+            }
+            else
+            {
+                var trackedIDValue = trackedID.oldId;
+                if (trackedClusters.TryGetValue(trackedIDValue, out var sisterCluster))
+                {
+                    var sisterClusterID = sisterCluster.ClusterID;
+                    sisterClusterID.LifeTime = 1;
+                    if (sisterClusterID.Value == trackedIDValue)
+                    {
+                        sisterClusterID.UpdateValue(GetNextID(clusters));
+                        //Debug.Log($"Split {oldSet[trackedID.oldId]} to {sisterCluster}");
+                    }
+
+                    clusterID.UpdateValue(GetNextID(clusters));
+                    //Debug.Log($"Split {oldSet[trackedID.oldId]} to {cluster}");
+                }
+                else
+                {
+                    clusterID.LifeTime = oldSet[trackedIDValue].ClusterID.LifeTime + 1;
+                    clusterID.UpdateValue(trackedIDValue);
+                    trackedClusters.Add(trackedIDValue, cluster);
+                }
+            }
+        }
     }
 
     private int GetNextID(ReadOnlyCollection<Cluster<Point>> clusters)
@@ -168,67 +376,6 @@ public class PLDBSCAN : MonoBehaviour
         }
 
         return nextID++;
-    }
-
-    private void UpdateWhthTracking(ReadOnlyCollection<Cluster<Point>> clusters)
-    {
-        if (oldSet == null)
-        {
-            UpdateOnlyFrame(clusters);
-            return;
-        }
-
-        Dictionary<int, Cluster<Point>> trackedClusters = new();
-
-        foreach (var cluster in clusters)
-        {
-            // このクラスタの各粒子の旧クラスタにおける分布を計算
-            var countOlds = new Dictionary<ClusterID, int>();
-            foreach (var point in cluster)
-            {
-                var oldId = point.OldClusterID;
-
-                if (oldId == ClusterID.UnclusteredID) continue;
-                if (!oldSet.ContainsKey(oldId)) continue;
-
-                countOlds[oldId] = countOlds.GetValueOrDefault(oldId) + 1;
-            }
-
-            // 条件を満たすもっとも量が多い旧クラスタをトラッキング
-            var trackedID = countOlds
-                .OrderByDescending(countOld => countOld.Value)
-                .FirstOrDefault(countOld =>
-                {
-                    //旧クラスタ由来量
-                    var sameCount = countOld.Value;
-                    //旧クラスタ総量
-                    var oldCount = oldSet[countOld.Key].Count;
-
-                    return sameCount >= oldCount * continuousRatio &&    // 旧クラスタ総量の continuousRatio 倍以上が新クラスタに残っている
-                           oldCount >= sameCount * continuousRatio;      // 旧クラスタ由来量の continuousRatio 倍以上が旧クラスタ由来である
-                });
-
-            if (trackedID.Value != default)
-            {
-                var trackedIDValue = trackedID.Key.Value;
-                if (trackedClusters.TryGetValue(trackedIDValue, out var sisterCluster))
-                {
-                    sisterCluster.ClusterID.UpdateValue(GetNextID(clusters));
-                    cluster.ClusterID.UpdateValue(GetNextID(clusters));
-                    Debug.Log($"Split {oldSet[trackedID.Key]} to {sisterCluster} and {cluster}");
-                }
-                else
-                {
-                    cluster.ClusterID.UpdateValue(trackedIDValue);
-                    trackedClusters.Add(trackedIDValue, cluster);
-                }
-            }
-            else
-            {
-                cluster.ClusterID.UpdateValue(GetNextID(clusters));
-                Debug.Log($"New {cluster}");
-            }
-        }
     }
 
     private void UpdateOnlyFrame(ReadOnlyCollection<Cluster<Point>> clusters)

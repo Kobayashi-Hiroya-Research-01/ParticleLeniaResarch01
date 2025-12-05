@@ -34,6 +34,11 @@ public class PLParticleController : MonoBehaviour
         Destroy(material);
     }
 
+    public void InfoUpdate(ParticleInfo particleInfo)
+    {
+        this.particleInfo = particleInfo;
+    }
+
     public void InitPostAction(ParticleInfo particleInfo, PLViewModeController viewModeController, PLMinMax pLMinMax, int particleIndex)
     {
         this.particleInfo = particleInfo;
@@ -48,10 +53,8 @@ public class PLParticleController : MonoBehaviour
     {
         var pos = particleInfo.position;
         var posV = Vector3.zero;
-        for (int i = 0; i < pos.Length; i++)
+        for (int i = 0; i < Mathf.Min(3, pos.Length); i++)
         {
-            if (i >= 3) break;
-
             posV[i] = (float)pos[i];
         }
 
@@ -79,5 +82,10 @@ public class PLParticleController : MonoBehaviour
         e = (float)particleInfo.LastE;
         g = (float)particleInfo.lastGt;
         r = (float)particleInfo.lastRt;
+
+        if (Input.GetKeyUp(KeyCode.Q) && particleIndex == 0)
+        {
+            Debug.Log("Pos : " + string.Join(",", particleInfo.position));
+        }
     }
 }

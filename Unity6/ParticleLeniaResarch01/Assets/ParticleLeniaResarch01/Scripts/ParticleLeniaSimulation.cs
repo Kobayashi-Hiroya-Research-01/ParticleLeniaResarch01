@@ -9,6 +9,7 @@ using System.Globalization;
 using UnityEngine;
 using MathNet.Numerics;
 using Assets.Packages.MathNet.Numerics.Custom;
+using System.Linq;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.Data
 {
@@ -134,7 +135,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 
         public DistanceCache LastDistances => source.Distances;
 
-        public void Next(int step, IParticleLenia.PostAction intermediatePostAction, IParticleLenia.PostAction lastPostAction)
+        public void Next(int step, IParticleLenia.PostParticleAction intermediatePostAction, IParticleLenia.PostParticleAction lastPostAction, IParticleLenia.PostStepAction postStepAction)
         {
             if (step <= 0) throw new ArgumentOutOfRangeException(nameof(step));
 
@@ -147,12 +148,14 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             for (int i = 0; i < step - 1; i++)
             {
                 Step(intermediatePostAction);
+                postStepAction?.Invoke();
             }
 
             Step(lastPostAction);
+            postStepAction?.Invoke();
         }
 
-        public void Init(IParticleLenia.PostAction postAction)
+        public void Init(IParticleLenia.PostParticleAction postAction)
         {
             Control.UseBestProviders();
 
@@ -176,7 +179,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             source.lastResult.Time = CurrentTime;
         }
 
-        private void Step(IParticleLenia.PostAction postAction)
+        private void Step(IParticleLenia.PostParticleAction postAction)
         {
             const int BLOCK_SIZE_MIN = 10;
             var nextResult = source.tempResult;
@@ -279,7 +282,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             }
         }
 
-        private void StepForParticle(int start, int end, IParticleLenia.PostAction postAction)
+        private void StepForParticle(int start, int end, IParticleLenia.PostParticleAction postAction)
         {
             var nextResult = source.tempResult;
             var lastResult = source.lastResult;
