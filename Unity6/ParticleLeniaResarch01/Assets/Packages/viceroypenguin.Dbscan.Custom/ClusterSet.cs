@@ -13,76 +13,59 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <summary>
     /// The result of running the DBSCAN algorithm on a set of data.
     /// </summary>
-    /// <typeparam name="T">The type of elements in the cluster.</typeparam>
-    public class ClusterSet<T> : IReadOnlyDictionary<int, Cluster<T>> where T : IPointData
+    /// <typeparam name="TPoint">The type of elements in the cluster.</typeparam>
+    public class ClusterSet<TPoint, TCluster> : IReadOnlyDictionary<int, TCluster>
+        where TPoint : IPointData
+        where TCluster : Cluster<TPoint>, new()
     {
-        private readonly ReadOnlyCollection<Cluster<T>> clusters;
-        private readonly ReadOnlyCollection<Cluster<T>> orderByDescendingCountClusters;
+        public ReadOnlyCollection<TCluster> Clusters { get; }
 
-        public ClusterSet(List<Cluster<T>> clusters, List<T> unclusteredObjects)
+        public ClusterSet(List<TCluster> clusters, TCluster unclusteredObjectsCluster)
         {
-            this.clusters = clusters.AsReadOnly();
-            orderByDescendingCountClusters = new(
-                clusters
-                    .OrderByDescending(e => e.Count)
-                    .ToArray()
-            );
-            ClustersDict = new ReadOnlyDictionary<int, Cluster<T>>(clusters.ToDictionary(e => e.ClusterID.Value));
-
-            UnclusteredObjects = new Cluster<T>(ClusterID.UnclusteredID, unclusteredObjects);
+            this.Clusters = clusters.AsReadOnly();
+            ClustersDict = new(clusters.ToDictionary(e => e.ClusterID.Value));
+            UnclusteredObjects = unclusteredObjectsCluster;
         }
 
         /// <summary>
         /// A list of the clusters that have been identified.
         /// </summary>
-        public ReadOnlyDictionary<int, Cluster<T>> ClustersDict { get; private set; }
+        public ReadOnlyDictionary<int, TCluster> ClustersDict { get; private set; }
 
         /// <summary>
         /// A list of the items that were not identified as being part of a cluster.
         /// </summary>
-        public Cluster<T> UnclusteredObjects { get; }
+        public TCluster UnclusteredObjects { get; }
 
-        public ReadOnlyCollection<Cluster<T>> OrderByDescendingCountClusters => orderByDescendingCountClusters;
+        public IEnumerable<int> Keys => ((IReadOnlyDictionary<int, TCluster>)ClustersDict).Keys;
+
+        public IEnumerable<TCluster> Values => ((IReadOnlyDictionary<int, TCluster>)ClustersDict).Values;
+
+        public int Count => ((IReadOnlyCollection<KeyValuePair<int, TCluster>>)ClustersDict).Count;
+
+        public TCluster this[int key] => ((IReadOnlyDictionary<int, TCluster>)ClustersDict)[key];
 
         public void UpdateDict()
         {
-            ClustersDict = new ReadOnlyDictionary<int, Cluster<T>>(clusters.ToDictionary(e => e.ClusterID.Value));
+            ClustersDict = new(Clusters.ToDictionary(e => e.ClusterID.Value));
         }
-
-        public bool ContainsKey(int key)
-        {
-            return ((IReadOnlyDictionary<int, Cluster<T>>)ClustersDict).ContainsKey(key);
-        }
-
-        public bool TryGetValue(int key, out Cluster<T> value)
-        {
-            return ((IReadOnlyDictionary<int, Cluster<T>>)ClustersDict).TryGetValue(key, out value);
-        }
-
-        public IEnumerator<KeyValuePair<int, Cluster<T>>> GetEnumerator()
-        {
-            return ((IEnumerable<KeyValuePair<int, Cluster<T>>>)ClustersDict).GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable)ClustersDict).GetEnumerator();
-        }
-
-        public int Count => clusters.Count;
-
-        public IEnumerable<int> Keys => ((IReadOnlyDictionary<int, Cluster<T>>)ClustersDict).Keys;
-
-        public IEnumerable<Cluster<T>> Values => ((IReadOnlyDictionary<int, Cluster<T>>)ClustersDict).Values;
-
-        public Cluster<T> this[int key] => ((IReadOnlyDictionary<int, Cluster<T>>)ClustersDict)[key];
 
         public double SilhouetteCoefficient()
         {
+            // ユークリッド距離
+            static double Dist(TPoint at, TPoint bt)
+            {
+                var a = at.Point;
+                var b = bt.Point;
+
+                double sum = 0;
+                for (int i = 0; i < a.Length; i++)
+                    sum += (a[i] - b[i]) * (a[i] - b[i]);
+                return Math.Sqrt(sum);
+            }
+
             // 全クラスタのポイント群を取り出し
-            var clusters = OrderByDescendingCountClusters
-                .Select(c => c.Objects)
-                .ToList();
+            var clusters = Clusters;
 
             double total = 0;
             int count = 0;
@@ -141,16 +124,24 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             return count > 0 ? total / count : 0;
         }
 
-        // ユークリッド距離
-        private static double Dist(T at, T bt)
+        public bool ContainsKey(int key)
         {
-            var a = at.Point;
-            var b = bt.Point;
+            return ((IReadOnlyDictionary<int, TCluster>)ClustersDict).ContainsKey(key);
+        }
 
-            double sum = 0;
-            for (int i = 0; i < a.Length; i++)
-                sum += (a[i] - b[i]) * (a[i] - b[i]);
-            return Math.Sqrt(sum);
+        public bool TryGetValue(int key, out TCluster value)
+        {
+            return ((IReadOnlyDictionary<int, TCluster>)ClustersDict).TryGetValue(key, out value);
+        }
+
+        public IEnumerator<KeyValuePair<int, TCluster>> GetEnumerator()
+        {
+            return ((IEnumerable<KeyValuePair<int, TCluster>>)ClustersDict).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)ClustersDict).GetEnumerator();
         }
     }
 }

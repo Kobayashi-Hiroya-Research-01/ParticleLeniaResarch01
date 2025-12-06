@@ -13,30 +13,30 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <summary>
     /// Contains static methods to run the DBSCAN algorithm.
     /// </summary>
-    public class Dbscan<T> where T : IPointData
+    public class Dbscan<TPoint, TCluster> : IDbscan<TPoint, TCluster> where TPoint : IPointData
+        where TCluster : Cluster<TPoint>, new()
     {
         private int lastIDValue = 0;
-        private readonly ListSpatialIndex<T> pointInfos;
-        private readonly Queue<PointInfo<T>> queue;
+        private readonly ListSpatialIndex<TPoint> pointInfos;
+        private readonly Queue<PointInfo<TPoint>> queue;
 
         public double Epsilon { get; set; } = 0.1;
         public int MinimumPointsPerCluster { get; set; } = 2;
 
         public Dbscan()
         {
-            pointInfos = new ListSpatialIndex<T>();
-            queue = new Queue<PointInfo<T>>();
+            pointInfos = new ListSpatialIndex<TPoint>();
+            queue = new Queue<PointInfo<TPoint>>();
         }
 
-        public void AddPoint(T data)
+        public void AddPoint(TPoint data)
         {
-            pointInfos.List.Add(new PointInfo<T>(data));
+            pointInfos.List.Add(new PointInfo<TPoint>(data));
         }
 
-        public ClusterSet<T> CalculateClusters(Action<T, ClusterID> onClustered)
+        public ClusterSet<TPoint, TCluster> CalculateClusters(Action<TPoint, TCluster> onClustered)
         {
-            var clusters = new List<Cluster<T>>();
-            var unclusterdObjects = new List<T>();
+            var clusters = new List<TCluster>();
 
             foreach (var pointInfo in pointInfos.List)
             {
@@ -57,12 +57,16 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 }
             }
 
+            var unclusteredObjectsCluster = new TCluster();
+            var unclusteredObjects = new List<TPoint>();
+            unclusteredObjectsCluster.Init(ClusterID.UnclusteredID, unclusteredObjects);
+
             foreach (var pointInfo in pointInfos.List)
             {
                 if (!pointInfo.Clustered)
                 {
-                    onClustered(pointInfo.Item, ClusterID.UnclusteredID);
-                    unclusterdObjects.Add(pointInfo.Item);
+                    onClustered(pointInfo.Item, unclusteredObjectsCluster);
+                    unclusteredObjects.Add(pointInfo.Item);
                 }
                 else
                 {
@@ -72,18 +76,20 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 pointInfo.Visited = false;
             }
 
-            return new ClusterSet<T>(clusters, unclusterdObjects);
+            return new ClusterSet<TPoint, TCluster>(clusters, unclusteredObjectsCluster);
         }
 
-        private Cluster<T> BuildCluster(PointInfo<T> corePointInfo, Action<T, ClusterID> onClustered)
+        private TCluster BuildCluster(PointInfo<TPoint> corePointInfo, Action<TPoint, TCluster> onClustered)
         {
             int clusterIDValue = (lastIDValue == int.MaxValue) ? 0 : (lastIDValue + 1);
             lastIDValue = clusterIDValue;
             var clusterID = new ClusterID(clusterIDValue);
-            var objects = new List<T>();
+            var objects = new List<TPoint>();
+            var cluster = new TCluster();
+            cluster.Init(clusterID, objects);
 
             corePointInfo.Clustered = true;
-            onClustered(corePointInfo.Item, clusterID);
+            onClustered(corePointInfo.Item, cluster);
             objects.Add(corePointInfo.Item);
 
             while (queue.Count > 0)
@@ -100,15 +106,15 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 if (!newPoint.Clustered)
                 {
                     newPoint.Clustered = true;
-                    onClustered?.Invoke(newPoint.Item, clusterID);
+                    onClustered?.Invoke(newPoint.Item, cluster);
                     objects.Add(newPoint.Item);
                 }
             }
 
-            return new Cluster<T>(clusterID, objects);
+            return cluster;
         }
 
-        private void OnFind(PointInfo<T> pInfo)
+        private void OnFind(PointInfo<TPoint> pInfo)
         {
             if (!pInfo.Visited)
             {

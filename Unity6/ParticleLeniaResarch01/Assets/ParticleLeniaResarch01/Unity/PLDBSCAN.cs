@@ -5,10 +5,7 @@ using Assets.ParticleLeniaResarch01.Analysis;
 using System;
 using System.Collections.ObjectModel;
 using Assets.Packages.viceroypenguin.Dbscan.Custom;
-using static UnityEngine.Rendering.DebugUI;
-using System.Security.Cryptography;
-using UnityEngine.Rendering.Universal;
-using static PLMinMax;
+using Cluster = Assets.ParticleLeniaResarch01.Analysis.ClusterTrackingCluster<PLDBSCAN.Point>;
 
 public class PLDBSCAN : MonoBehaviour
 {
@@ -28,13 +25,13 @@ public class PLDBSCAN : MonoBehaviour
         public double silhouetteCoefficient;
         public bool calcSilhouetteCoefficient;
 
-        public void Update(ClusterSet<Point> oldSet)
+        public void Update(ClusterSet<Point, Cluster> oldSet)
         {
             clusterCount = oldSet.Count;
             if (calcLifeTime)
             {
-                lifeTime = oldSet.OrderByDescendingCountClusters
-                    .Select(e => new LifeTime() { id = e.ClusterID.Value, lifeTime = e.ClusterID.LifeTime })
+                lifeTime = oldSet.Clusters
+                    .Select(e => new LifeTime() { id = e.ClusterID.Value, lifeTime = e.LifeTime })
                     .OrderByDescending(e => e.lifeTime)
                     .ToArray();
             }
@@ -56,9 +53,9 @@ public class PLDBSCAN : MonoBehaviour
         NoPointE,
     }
 
-    public PointMode pointMode;
     public int clusterInfoIndex;
-    public PLMinMax mimmax;
+    public PointMode pointMode;
+    public ClusterTrackingMode clusterTrackingMode;
 
     [Range(1, 10)]
     public int minPtr;
@@ -77,18 +74,15 @@ public class PLDBSCAN : MonoBehaviour
     [Range(0, 1)]
     public double continuousRatio;
 
-    public bool trackingMode;
-
     public DebugData debugData;
 
-    private Dbscan<Point> dbscan;
-    private ClusterSet<Point> oldSet;
-    private int nextID = 0;
-    private Dictionary<int, Dictionary<int, int>> oldIDCountByNewID;
+    public PLMinMax mimmax;
 
-    public class Point : IPointData
+    private ClusterTrackingDbscan<Point> dbscan;
+
+    public class Point : IClusterTrackingPointData
     {
-        public PLParticleController particle;
+        private readonly PLParticleController particle;
         private readonly PLDBSCAN pLDBSCAN;
         private readonly double[] point;
         private readonly Action updatePoint;
@@ -203,22 +197,22 @@ public class PLDBSCAN : MonoBehaviour
 
                 return list[pLDBSCAN.clusterInfoIndex].clusterID;
             }
+
+            set
+            {
+                var list = particle.ClusterInfo.clusterInfoList;
+                var index = pLDBSCAN.clusterInfoIndex;
+
+                while (index >= list.Count)
+                {
+                    list.Add(new ClusterInfo());
+                }
+
+                list[index].clusterID = value;
+            }
         }
 
         public int Index => particle.particleIndex;
-
-        public void SetClusterID(ClusterID value)
-        {
-            var list = particle.ClusterInfo.clusterInfoList;
-            var index = pLDBSCAN.clusterInfoIndex;
-
-            while (index >= list.Count)
-            {
-                list.Add(new ClusterInfo());
-            }
-
-            list[index].clusterID = value;
-        }
     }
 
     private void OnEnable()
@@ -228,17 +222,27 @@ public class PLDBSCAN : MonoBehaviour
 
     private void OnValidate()
     {
-        dbscan ??= new Dbscan<Point>();
+        dbscan ??= new();
         dbscan.Epsilon = eps;
         dbscan.MinimumPointsPerCluster = minPtr;
+        dbscan.TrackingMode = clusterTrackingMode;
+        dbscan.StartIndex = clusterInfoIndex * 1000;
+        dbscan.ContinuousRatio = continuousRatio;
 
         UpdateSimulationAfter();
     }
 
     public void SimulationInit()
     {
-        dbscan = new Dbscan<Point>() { Epsilon = eps, MinimumPointsPerCluster = minPtr };
-        nextID = clusterInfoIndex * 1000;
+        dbscan = new()
+        {
+            NextID = clusterInfoIndex * 1000,
+            Epsilon = eps,
+            MinimumPointsPerCluster = minPtr,
+            TrackingMode = clusterTrackingMode,
+            StartIndex = clusterInfoIndex * 1000,
+            ContinuousRatio = continuousRatio,
+        };
     }
 
     public void InitPostAction(PLParticleController particle)
@@ -249,142 +253,7 @@ public class PLDBSCAN : MonoBehaviour
 
     public void UpdateSimulationAfter()
     {
-        oldSet ??= new ClusterSet<Point>(new List<Cluster<Point>>(), new List<Point>());
-        oldIDCountByNewID ??= new();
-        oldIDCountByNewID.Clear();
-
-        var set = dbscan.CalculateClusters(OnClustered);
-
-        if (trackingMode)
-        {
-            UpdateWhthTracking(set.OrderByDescendingCountClusters);
-        }
-        else
-        {
-            UpdateOnlyFrame(set.OrderByDescendingCountClusters);
-        }
-
-        oldSet = set;
-        oldSet.UpdateDict();
-
+        var set = dbscan.CalculateClusters(null);
         debugData.Update(set);
-    }
-
-    private void OnClustered(Point point, ClusterID clusterID)
-    {
-        var oldId = point.ClusterID;
-        point.SetClusterID(clusterID);
-
-        if (clusterID == ClusterID.UnclusteredID) return;
-
-        if (!oldIDCountByNewID.TryGetValue(clusterID.Value, out var oldIDCount))
-        {
-            oldIDCountByNewID[clusterID.Value] = oldIDCount = new Dictionary<int, int>();
-        }
-
-        oldIDCount[oldId.Value] = oldIDCount.GetValueOrDefault(oldId.Value) + 1;
-    }
-
-    private void UpdateWhthTracking(ReadOnlyCollection<Cluster<Point>> clusters)
-    {
-        Dictionary<int, Cluster<Point>> trackedClusters = new();
-
-        foreach (var cluster in clusters)
-        {
-            var clusterID = cluster.ClusterID;
-            var oldIDCount = oldIDCountByNewID[clusterID.Value];
-
-            // 条件を満たすもっとも量が多い旧クラスタをトラッキング
-            var trackedID = oldIDCount
-                .Where(values =>
-                {
-                    return oldSet.ContainsKey(values.Key);
-                })
-                .Select(countOld =>
-                {
-                    //新旧クラスタ一致量
-                    var sameCount = countOld.Value;
-                    //旧クラスタ総量
-                    var oldCount = oldSet[countOld.Key].Count;
-
-                    var p = (double)sameCount / oldCount;
-                    var r = (double)sameCount / cluster.Count;
-
-                    return (oldId: countOld.Key, sameCount, p, r);
-                })
-                .Where(values =>
-                {
-                    //Fowlkes-Mallows index
-                    return values.p * values.r >= continuousRatio * continuousRatio;
-
-                    //Fowlkes-Mallows like condition
-                    return values.p >= continuousRatio &&    // 旧クラスタ総量の continuousRatio 倍以上が新クラスタに残っている
-                           values.r >= continuousRatio;      // 旧クラスタ由来量の continuousRatio 倍以上が旧クラスタ由来である
-                })
-                .OrderByDescending(values => values.sameCount)
-                .FirstOrDefault();
-
-            clusterID.LifeTime = 1;
-
-            if (trackedID.sameCount == 0)
-            {
-                cluster.ClusterID.UpdateValue(GetNextID(clusters));
-                //Debug.Log($"New {cluster}");
-            }
-            else
-            {
-                var trackedIDValue = trackedID.oldId;
-                if (trackedClusters.TryGetValue(trackedIDValue, out var sisterCluster))
-                {
-                    var sisterClusterID = sisterCluster.ClusterID;
-                    sisterClusterID.LifeTime = 1;
-                    if (sisterClusterID.Value == trackedIDValue)
-                    {
-                        sisterClusterID.UpdateValue(GetNextID(clusters));
-                        //Debug.Log($"Split {oldSet[trackedID.oldId]} to {sisterCluster}");
-                    }
-
-                    clusterID.UpdateValue(GetNextID(clusters));
-                    //Debug.Log($"Split {oldSet[trackedID.oldId]} to {cluster}");
-                }
-                else
-                {
-                    clusterID.LifeTime = oldSet[trackedIDValue].ClusterID.LifeTime + 1;
-                    clusterID.UpdateValue(trackedIDValue);
-                    trackedClusters.Add(trackedIDValue, cluster);
-                }
-            }
-        }
-    }
-
-    private int GetNextID(ReadOnlyCollection<Cluster<Point>> clusters)
-    {
-        if (nextID > int.MaxValue / 2)
-        {
-            nextID = 0;
-        }
-
-        for (int i = 0; i < clusters.Count; i++)
-        {
-            var e = clusters[i];
-            if (e.ClusterID.Value == nextID)
-            {
-                ++nextID;
-                i = 0;
-                continue;
-            }
-        }
-
-        return nextID++;
-    }
-
-    private void UpdateOnlyFrame(ReadOnlyCollection<Cluster<Point>> clusters)
-    {
-        int i = clusterInfoIndex * 1000;
-        foreach (var cluster in clusters)
-        {
-            cluster.ClusterID.UpdateValue(i++);
-        }
-        nextID = i;
     }
 }

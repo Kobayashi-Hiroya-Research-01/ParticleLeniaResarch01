@@ -13,22 +13,22 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <typeparam name="T">The type of elements in the cluster.</typeparam>
     public class Cluster<T> : IReadOnlyList<T> where T : IPointData
     {
-        public ClusterID ClusterID { get; }
-
-        public Cluster(ClusterID clusterID, List<T> objects)
-        {
-            ClusterID = clusterID;
-            Objects = objects.AsReadOnly();
-        }
+        public ClusterID ClusterID { get; private set; }
 
         /// <summary>
         /// The items that have been clustered.
         /// </summary>
-        public ReadOnlyCollection<T> Objects { get; }
+        public ReadOnlyCollection<T> Objects { get; private set; }
 
         public int Count => Objects.Count;
 
         public T this[int index] => Objects[index];
+
+        public void Init(ClusterID clusterID, List<T> objects)
+        {
+            ClusterID = clusterID;
+            Objects = objects.AsReadOnly();
+        }
 
         public IEnumerator<T> GetEnumerator()
         {

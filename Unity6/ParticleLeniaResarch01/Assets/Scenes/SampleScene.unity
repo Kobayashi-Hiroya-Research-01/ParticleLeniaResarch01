@@ -3554,22 +3554,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e8694231a4c9544d89cbdf4b3dddf5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  pointMode: 0
   clusterInfoIndex: 0
-  mimmax: {fileID: 1727290290}
+  pointMode: 0
+  clusterTrackingMode: 2
   minPtr: 2
   eps: 2
   utWeight: 1
   rtWeight: 1
   utRtWeightNormalizeWithPosRange: 1
   continuousRatio: 0.49000000953674316
-  trackingMode: 1
   debugData:
     clusterCount: 0
     calcLifeTime: 0
     lifeTime: []
     silhouetteCoefficient: 0
     calcSilhouetteCoefficient: 0
+  mimmax: {fileID: 1727290290}
 --- !u!1 &361345794
 GameObject:
   m_ObjectHideFlags: 0
@@ -4832,22 +4832,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e8694231a4c9544d89cbdf4b3dddf5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  pointMode: 0
   clusterInfoIndex: 1
-  mimmax: {fileID: 1727290290}
+  pointMode: 0
+  clusterTrackingMode: 2
   minPtr: 2
   eps: 4
   utWeight: 1
   rtWeight: 1
   utRtWeightNormalizeWithPosRange: 1
   continuousRatio: 0.49000000953674316
-  trackingMode: 1
   debugData:
     clusterCount: 0
     calcLifeTime: 0
     lifeTime: []
     silhouetteCoefficient: 0
     calcSilhouetteCoefficient: 0
+  mimmax: {fileID: 1727290290}
 --- !u!1 &533796965
 GameObject:
   m_ObjectHideFlags: 0

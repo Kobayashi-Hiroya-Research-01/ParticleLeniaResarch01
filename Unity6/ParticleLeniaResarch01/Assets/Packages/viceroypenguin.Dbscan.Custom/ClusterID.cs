@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -17,8 +16,6 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         }
 
         public int Value { get; private set; }
-
-        public int LifeTime { get; set; }
 
         public void UpdateValue(int value)
         {

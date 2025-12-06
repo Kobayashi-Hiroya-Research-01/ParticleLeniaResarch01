@@ -45,11 +45,11 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
 
         public ref ParticleInfo this[int index] => ref array[index];
 
-        public ParticleInfoArray(ParticleInfo[] array, double time, int frame)
+        public ParticleInfoArray(ParticleInfo[] array, double time, int step)
         {
             this.array = array;
             Time = time;
-            Step = frame;
+            Step = step;
         }
 
         public ParticleInfoArray(int length, double time, int frame) : this(new ParticleInfo[length], time, frame)
