@@ -8,27 +8,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Assets.ParticleLeniaResarch01.Analysis
 {
-    public interface IClusterTrackingPointData : IPointData
-    {
-        public ClusterID ClusterID { get; set; }
-    }
-
-    public enum ClusterTrackingMode
-    {
-        None,
-        Continuous_FowlkesMallowsIndex,
-        Continuous_FowlkesMallowsLike,
-        OrderByCount,
-        OrderByLifeTime,
-    }
-
-    public class ClusterTrackingCluster<TPoint> : Cluster<TPoint>
-        where TPoint : IClusterTrackingPointData
-    {
-        public int LifeTime { get; set; } = 0;
-        public Dictionary<int, int> OldIDCount { get; } = new Dictionary<int, int>();
-    }
-
     public class ClusterTrackingDbscan<TPoint> : IDbscan<TPoint, ClusterTrackingCluster<TPoint>>
         where TPoint : IClusterTrackingPointData
     {
