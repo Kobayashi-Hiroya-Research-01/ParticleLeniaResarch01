@@ -1,15 +1,31 @@
 ﻿using System;
-using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.UIElements;
 
-namespace Assets.ParticleLenia.Scripts
+namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
 {
-    public readonly ref struct DistanceCache
+    public struct DistanceCache
     {
-        public readonly Span<double> distances;
-        public readonly Span2D<double> positions;
+        private double[] distances;
+        public readonly bool IsNull => distances == null;
 
-        public int PointCount => positions.length1;
-        public int DimCount => positions.length2;
+        public readonly int Length => distances.Length;
+
+        public readonly ReadOnlySpan<double> Distances => distances;
+
+        public readonly double this[int indexA, ReadOnlySpan<double> posA, int indexB, ReadOnlySpan<double> posB]
+        {
+            get
+            {
+                if (indexA == indexB) return 0.0;
+
+                ref var value = ref distances.CombinationElement(indexA, indexB);
+                if (value < 0) value = Distance(posA, posB);
+
+                return value;
+            }
+        }
 
         /// <summary>
         ///
@@ -17,67 +33,21 @@ namespace Assets.ParticleLenia.Scripts
         /// <param name="distances">result : GetCombinationLength() でサイズを取得して初期化してください。</param>
         /// <param name="positions">length1 = 粒子数, length2 = 次元数</param>
         ///
-        public DistanceCache(Span<double> distances, in Span2D<double> positions)
+        public DistanceCache(int length)
         {
-            if (distances.Length != GetCombinationLength(positions.length1))
-            {
-                throw new ArgumentException("DistanceCache distances.Length != GetCombinationLength(positions.length1)");
-            }
-
-            this.distances = distances;
-            this.positions = positions;
+            distances = CombinationArray.New<double>(length);
+            Reset();
         }
 
-        public void Reset()
+        public void Reset(int newLength)
         {
-            for (int i = 0; i < distances.Length; i++)
-            {
-                distances[i] = -1.0;
-            }
+            CombinationArray.Resize(ref distances, newLength);
+            Reset();
         }
 
-        public readonly double Distance(int index, ReadOnlySpan<double> position)
+        public readonly void Reset()
         {
-            return Distance(positions[index], position);
-        }
-
-        public readonly double Distance(int indexA, int indexB)
-        {
-            if (indexA == indexB) return 0.0;
-
-            int index = GetCombinationIndex(indexA, indexB);
-            var distance = distances[index];
-
-            if (distance < 0.0f)
-            {
-                distance = Distance(positions[indexA], positions[indexB]);
-                distances[index] = distance;
-            }
-
-            return distance;
-        }
-
-        public static int GetCombinationLength(int length)
-        {
-            //return GetCombinationIndex(length1 - 1, length1 - 2) + 1;
-            return ((length - 1) * length) >> 1;
-        }
-
-        public static int GetCombinationIndex(int indexA, int indexB)
-        {
-            int max, range;
-            if (indexA < indexB)
-            {
-                max = indexB;
-                range = indexB - indexA;
-            }
-            else
-            {
-                max = indexA;
-                range = indexA - indexB;
-            }
-
-            return (max * (max + 1) >> 1) - range;
+            distances.AsSpan().Fill(-1.0);
         }
 
         public static double Distance(ReadOnlySpan<double> a, ReadOnlySpan<double> b)
@@ -88,8 +58,8 @@ namespace Assets.ParticleLenia.Scripts
             {
                 var ai = a[i];
                 var bi = b[i];
-                var a_minus_b = ai - bi;
-                sum += a_minus_b * a_minus_b;
+                var d = ai - bi;
+                sum += d * d;
             }
 
             return Math.Sqrt(sum);

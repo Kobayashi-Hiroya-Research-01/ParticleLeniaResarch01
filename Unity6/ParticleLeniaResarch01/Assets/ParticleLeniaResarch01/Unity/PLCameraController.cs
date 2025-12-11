@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+using Assets.ParticleLeniaResarch01.Analyzers;
+using Assets.ParticleLeniaResarch01.Scripts;
 using UnityEngine;
 
 public class PLCameraController : MonoBehaviour
@@ -8,25 +9,12 @@ public class PLCameraController : MonoBehaviour
     public new Camera camera;
     public Renderer grid;
 
-    public void SimulationInit(PLMinMax minMax)
-    {
-        modeController.Setup(minMax);
-    }
-
-    public void Awake()
+    public void UpdateCamera(ParticleLeniaAnalyzer dependencies)
     {
         modeController = modeController != null ? modeController : FindFirstObjectByType<PLCameraModeController>();
-    }
 
-    private void OnEnable()
-    {
-        modeController = modeController != null ? modeController : FindFirstObjectByType<PLCameraModeController>();
-    }
-
-    // Update is called once per frame
-    private void Update()
-    {
-        modeController.CameraUpdate(camera);
+        var minMaxAnalyzer = dependencies.Search<MinMaxAnalyzer>();
+        modeController.CameraUpdate(camera, minMaxAnalyzer);
         modeController.GridUpdate(camera, grid, grid.sharedMaterial);
     }
 }

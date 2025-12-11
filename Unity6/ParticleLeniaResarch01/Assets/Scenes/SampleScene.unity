@@ -150,9 +150,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   viewModeController: {fileID: 0}
   cameraController: {fileID: 0}
-  minMax: {fileID: 0}
   utHistController: {fileID: 0}
-  pLDBSCANs: []
+  analyzerList: {fileID: 0}
   particlePrefab: {fileID: 2253794128707804095, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
   playerOptions:
     isPlay: 1
@@ -3521,7 +3520,7 @@ GameObject:
   - component: {fileID: 351010617}
   - component: {fileID: 351010618}
   m_Layer: 0
-  m_Name: DBSCAN_A
+  m_Name: DBSCAN_Component
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3553,23 +3552,25 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0e8694231a4c9544d89cbdf4b3dddf5d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: '::'
-  clusterInfoIndex: 0
-  pointMode: 0
-  clusterTrackingMode: 2
-  minPtr: 2
-  eps: 2
-  utWeight: 1
-  rtWeight: 1
-  utRtWeightNormalizeWithPosRange: 1
-  continuousRatio: 0.49000000953674316
-  debugData:
-    clusterCount: 0
-    calcLifeTime: 0
-    lifeTime: []
-    silhouetteCoefficient: 0
-    calcSilhouetteCoefficient: 0
-  mimmax: {fileID: 1727290290}
+  m_EditorClassIdentifier: Assembly-CSharp::PLClusteringAnalyzerController
+  debugInfo:
+    orderBy: 0
+    clusterInfoList: []
+  clusteringName: Component
+  clusterTrackingOption:
+    dbscanOption:
+      epsilon: 3
+      minimumPointsPerCluster: 2
+    trackingMode: 2
+    continuousRatio: 0.49000000953674316
+    startIndex: 0
+  pointSettingsOption:
+    <PointMode>k__BackingField: 1
+    <EWeight>k__BackingField: 1
+    <UtWeight>k__BackingField: 1
+    <RtWeight>k__BackingField: 1
+    <NormalizeStatusByPositionRange>k__BackingField: 1
+    <NormalizeStatusByDimension>k__BackingField: 0
 --- !u!1 &361345794
 GameObject:
   m_ObjectHideFlags: 0
@@ -4799,7 +4800,7 @@ GameObject:
   - component: {fileID: 520690511}
   - component: {fileID: 520690512}
   m_Layer: 0
-  m_Name: DBSCAN_B
+  m_Name: DBSCAN_Unit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4831,23 +4832,25 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0e8694231a4c9544d89cbdf4b3dddf5d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: '::'
-  clusterInfoIndex: 1
-  pointMode: 0
-  clusterTrackingMode: 2
-  minPtr: 2
-  eps: 4
-  utWeight: 1
-  rtWeight: 1
-  utRtWeightNormalizeWithPosRange: 1
-  continuousRatio: 0.49000000953674316
-  debugData:
-    clusterCount: 0
-    calcLifeTime: 0
-    lifeTime: []
-    silhouetteCoefficient: 0
-    calcSilhouetteCoefficient: 0
-  mimmax: {fileID: 1727290290}
+  m_EditorClassIdentifier: Assembly-CSharp::PLClusteringAnalyzerController
+  debugInfo:
+    orderBy: 0
+    clusterInfoList: []
+  clusteringName: Unit
+  clusterTrackingOption:
+    dbscanOption:
+      epsilon: 4
+      minimumPointsPerCluster: 2
+    trackingMode: 1
+    continuousRatio: 0.49000000953674316
+    startIndex: 500
+  pointSettingsOption:
+    <PointMode>k__BackingField: 1
+    <EWeight>k__BackingField: 1
+    <UtWeight>k__BackingField: 1
+    <RtWeight>k__BackingField: 1
+    <NormalizeStatusByPositionRange>k__BackingField: 1
+    <NormalizeStatusByDimension>k__BackingField: 0
 --- !u!1 &533796965
 GameObject:
   m_ObjectHideFlags: 0
@@ -5071,6 +5074,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 15117014}
     m_Modifications:
+    - target: {fileID: 1110451475563817720, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
+      propertyPath: clusterInfoList.Array.data[0].clusteringName
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 2253794128707804095, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
       propertyPath: m_Name
       value: PLParticle
@@ -11188,7 +11195,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UtHistController
   chart: {fileID: 2010053337}
-  minMax: {fileID: 1727290290}
   count: 200
   zeroToOne: 1
   movingAverageRange: 10
@@ -16782,7 +16788,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1721302502}
   m_CullTransparentMesh: 1
---- !u!1 &1727290288
+--- !u!1 &1735928111
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -16790,8 +16796,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1727290289}
-  - component: {fileID: 1727290290}
+  - component: {fileID: 1735928112}
+  - component: {fileID: 1735928113}
   m_Layer: 0
   m_Name: MinMax
   m_TagString: Untagged
@@ -16799,13 +16805,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1727290289
+--- !u!4 &1735928112
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727290288}
+  m_GameObject: {fileID: 1735928111}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -16814,30 +16820,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1931626601}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1727290290
+--- !u!114 &1735928113
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727290288}
+  m_GameObject: {fileID: 1735928111}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6f33d037ee19bf6429c3298107eb907d, type: 3}
+  m_Script: {fileID: 11500000, guid: 8e8038ba1b7b197499976da4462cd783, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: '::'
+  m_EditorClassIdentifier: Assembly-CSharp::PLMinMaxAnalyzerController
   eMinMax:
     min: 0
-    max: 1
+    max: 0
   rtMinMax:
     min: 0
-    max: 1
+    max: 0
   gtMinMax:
     min: 0
-    max: 1
+    max: 0
   utMinMax:
     min: 0
-    max: 1
+    max: 0
   xMinMax:
     min: 0
     max: 0
@@ -18230,8 +18236,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1931626601}
+  - component: {fileID: 1931626602}
   m_Layer: 0
-  m_Name: Analysis
+  m_Name: Analyzers
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -18250,12 +18257,28 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1727290289}
+  - {fileID: 1735928112}
   - {fileID: 1188813508}
   - {fileID: 351010617}
   - {fileID: 520690511}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1931626602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1931626600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 532431af6702b1149935187e379b48ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PLAnalyzerListController
+  particleLeniaAnalyzers:
+  - {fileID: 1735928113}
+  - {fileID: 351010618}
+  - {fileID: 520690512}
 --- !u!1 &1959400404
 GameObject:
   m_ObjectHideFlags: 0

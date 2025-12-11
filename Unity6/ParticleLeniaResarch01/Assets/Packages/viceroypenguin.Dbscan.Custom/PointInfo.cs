@@ -1,9 +1,6 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using System;
-using static UnityEditor.Progress;
-
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
     /// <summary>

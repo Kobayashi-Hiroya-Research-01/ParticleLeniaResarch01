@@ -1,27 +1,66 @@
-using Assets.ParticleLenia.Scripts;
+using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Analyzers;
+using Assets.ParticleLeniaResarch01.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
-using Assets.ParticleLeniaResarch01.Scripts.Fields;
 using Assets.ParticleLeniaResarch01.Scripts.Initializers;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
 
 public class ParticleLeniaController : MonoBehaviour
 {
-    public class Serializer : IParticleFieldsSerializer
+    private class ParticlesAnalyzer : IParticleLeniaAnalyzer
     {
-        public static Serializer Instance { get; } = new Serializer();
+        public readonly ParticleLeniaController particleLeniaController;
+        public readonly List<PLParticleController> particles;
+        private readonly ParticleLeniaAnalyzerElement[] elements;
 
-        public IParticleFields Read(string text)
+        public ParticlesAnalyzer(ParticleLeniaController particleLeniaController)
         {
-            return new ParticleFieldsOriginal(JsonUtility.FromJson<ParticleFieldsOriginal.State>(text));
+            this.particleLeniaController = particleLeniaController;
+            particles = new();
+
+            elements = new ParticleLeniaAnalyzerElement[]
+            {
+                new(timing: ParticleLeniaAnalyzerTiming.ForeachCreated, loopStart: StartCreate, @foreach: ForeachCreated)
+            };
         }
 
-        public string Write(IParticleFields fields)
+        public bool Enabled { get; set; } = true;
+
+        public ReadOnlySpan<ParticleLeniaAnalyzerElement> GetAnalyzerElements() => elements;
+
+        public void Reset()
         {
-            return JsonUtility.ToJson(((ParticleFieldsOriginal)fields).GetState());
+            particles.Clear();
+            particleLeniaController.DestroyParticles();
+        }
+
+        public void SetupDependencies(ParticleLeniaAnalyzer dependencies, IParticleLenia particleLenia)
+        {
+            var clusterTrackingDbscans = dependencies.SearchAll<ClusterTrackingDbscanAnalyzer>();
+
+            foreach (var clusterTrackingDbscan in clusterTrackingDbscans)
+            {
+                clusterTrackingDbscan.OnClustered -= ClusterTrackingDbscan_OnClustered;
+                clusterTrackingDbscan.OnClustered += ClusterTrackingDbscan_OnClustered;
+            }
+        }
+
+        private void StartCreate(ParticleInfoArray particles)
+        {
+            this.particles.Capacity = particleLeniaController.simulationOptions.particleCount;
+        }
+
+        private void ForeachCreated(ParticleInfo info, int index)
+        {
+            var p = particleLeniaController.CreateParticle(info, index);
+            particles.Add(p);
+        }
+
+        private void ClusterTrackingDbscan_OnClustered(ClusterTrackingDbscanAnalyzer.Point point, ClusterTrackingCluster<ClusterTrackingDbscanAnalyzer.Point> cluster, string clusteringName)
+        {
+            particles[point.Index].clusterInfo.SetCluster(clusteringName, cluster);
         }
     }
 
@@ -37,23 +76,17 @@ public class ParticleLeniaController : MonoBehaviour
 
     public PLViewModeController viewModeController;
     public PLCameraController cameraController;
-    public PLMinMax minMax;
     public UtHistController utHistController;
-    public PLDBSCAN[] pLDBSCANs;
+    public PLAnalyzerListController analyzerList;
     public GameObject particlePrefab;
     public PlayerOptions playerOptions;
-    //public bool updateTimeLine;
-    //public bool viewTimeLine;
-    //public ParticleLeniaTimeLine.Record timeLine;
-
     public OriginalInitializer.State simulationOptions;
 
-    private List<PLParticleController> particles;
+    private ParticlesAnalyzer particlesAnalyzer;
 
     private ParticleLeniaSimulation simulation;
 
-    public List<PLParticleController> Particles => particles;
-    public DistanceCache LastDistances => simulation.LastDistances;
+    private ParticleLeniaAnalyzer analyzer;
 
     private void Awake()
     {
@@ -67,40 +100,52 @@ public class ParticleLeniaController : MonoBehaviour
             cameraController = FindFirstObjectByType<PLCameraController>();
         }
 
-        if (minMax == null)
-        {
-            minMax = FindFirstObjectByType<PLMinMax>();
-        }
-
         if (utHistController == null)
         {
             utHistController = FindFirstObjectByType<UtHistController>();
         }
 
-        if (pLDBSCANs == null || pLDBSCANs.Length == 0)
+        if (analyzerList == null)
         {
-            pLDBSCANs = FindObjectsByType<PLDBSCAN>(FindObjectsSortMode.None).OrderBy(e => e.name, StringComparer.Ordinal).ToArray();
+            analyzerList = FindFirstObjectByType<PLAnalyzerListController>();
         }
-        cameraController.Awake();
     }
 
     private void OnEnable()
     {
-        viewModeController = viewModeController != null ? viewModeController : FindFirstObjectByType<PLViewModeController>();
-        cameraController = cameraController != null ? cameraController : FindFirstObjectByType<PLCameraController>();
+        Awake();
+        DestroyParticles();
 
+        simulation = new();
+        analyzer = new();
+        particlesAnalyzer = new(this);
+
+        var initializer = new OriginalInitializer();
+        initializer.SetState(simulationOptions);
+        simulation.Initializer = initializer;
+
+        analyzer.AddRange(analyzerList.ParticleLeniaAnalyzers);
+        analyzer.Add(particlesAnalyzer);
+
+        analyzer.AnalyzeAndInit(simulation);
+    }
+
+    private PLParticleController CreateParticle(ParticleInfo info, int index)
+    {
+        var go = Instantiate(particlePrefab, transform);
+        var component = go.GetComponent<PLParticleController>();
+        component.InitPostAction(info, viewModeController, analyzer, index);
+
+        return component;
+    }
+
+    private void DestroyParticles()
+    {
         var oldParticles = GetComponentsInChildren<PLParticleController>();
         foreach (var p in oldParticles)
         {
             Destroy(p.gameObject);
         }
-
-        simulation = new();
-        particles = new();
-        var initializer = new OriginalInitializer();
-        initializer.SetState(simulationOptions);
-        simulation.Initializer = initializer;
-        SimulationInit();
     }
 
     // Update is called once per frame
@@ -114,74 +159,14 @@ public class ParticleLeniaController : MonoBehaviour
         if (Input.GetKeyUp(KeyCode.R))
         {
             simulationOptions.seed += playerOptions.seedIncrement;
-            SimulationInit();
+            analyzer.AnalyzeAndInit(simulation);
+            cameraController.UpdateCamera(analyzer);
         }
 
         if (playerOptions.isPlay || Input.GetKeyUp(KeyCode.N))
         {
-            utHistController.SimulationInit();
-            minMax.SimulationInit();
-            simulation.Next(playerOptions.stepParFrame, IntermediatePostAction, LastPostAction, PostStepAction);
-        }
-    }
-
-    private void IntermediatePostAction(ParticleInfo info, int index)
-    {
-        minMax.IntermediatePostAction(info);
-        particles[index].InfoUpdate(info);
-        //ÉåÉRÅ[Éhèàóù
-    }
-
-    private void LastPostAction(ParticleInfo info, int index)
-    {
-        utHistController.LastPostAction(info);
-        minMax.LastPostAction(info);
-        particles[index].InfoUpdate(info);
-    }
-
-    private void PostStepAction()
-    {
-        Parallel.ForEach(pLDBSCANs, PLDBSCANUpdate);
-    }
-
-    private void PLDBSCANUpdate(PLDBSCAN pLDBSCAN)
-    {
-        pLDBSCAN.UpdateSimulationAfter();
-    }
-
-    private void SimulationInit()
-    {
-        foreach (var p in particles)
-        {
-            Destroy(p.gameObject);
-        }
-        particles.Clear();
-
-        minMax.SimulationInit();
-        utHistController.SimulationInit();
-        cameraController.SimulationInit(minMax);
-        foreach (var e in pLDBSCANs)
-        {
-            e.SimulationInit();
-        }
-
-        simulation.Init(InitPostAction);
-        PostStepAction();
-    }
-
-    private void InitPostAction(ParticleInfo info, int index)
-    {
-        var go = Instantiate(particlePrefab, transform);
-        var component = go.GetComponent<PLParticleController>();
-        component.InitPostAction(info, viewModeController, minMax, index);
-        particles.Add(component);
-
-        utHistController.InitPostAction(info);
-        minMax.InitPostAction(info);
-
-        foreach (var e in pLDBSCANs)
-        {
-            e.InitPostAction(component);
+            analyzer.AnalyzeAndNext(simulation, playerOptions.stepParFrame);
+            cameraController.UpdateCamera(analyzer);
         }
     }
 

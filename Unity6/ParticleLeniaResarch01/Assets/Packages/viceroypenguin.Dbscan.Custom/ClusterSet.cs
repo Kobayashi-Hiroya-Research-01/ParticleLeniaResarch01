@@ -1,7 +1,6 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,19 +17,18 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         where TPoint : IPointData
         where TCluster : Cluster<TPoint>, new()
     {
-        public ReadOnlyCollection<TCluster> Clusters { get; }
+        private Dictionary<int, TCluster> clusters;
 
-        public ClusterSet(List<TCluster> clusters, TCluster unclusteredObjectsCluster)
+        public ClusterSet(Dictionary<int, TCluster> clusters, TCluster unclusteredObjectsCluster)
         {
-            this.Clusters = clusters.AsReadOnly();
-            ClustersDict = new(clusters.ToDictionary(e => e.ClusterID.Value));
+            this.clusters = clusters;
             UnclusteredObjects = unclusteredObjectsCluster;
         }
 
         /// <summary>
         /// A list of the clusters that have been identified.
         /// </summary>
-        public ReadOnlyDictionary<int, TCluster> ClustersDict { get; private set; }
+        public ReadOnlyDictionary<int, TCluster> ClustersDict => new(clusters);
 
         /// <summary>
         /// A list of the items that were not identified as being part of a cluster.
@@ -47,7 +45,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public void UpdateDict()
         {
-            ClustersDict = new(Clusters.ToDictionary(e => e.ClusterID.Value));
+            clusters = clusters.Values.ToDictionary(e => e.ClusterID.Value);
         }
 
         public double SilhouetteCoefficient()
@@ -65,13 +63,13 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             }
 
             // 全クラスタのポイント群を取り出し
-            var clusters = Clusters;
+            var clusters = this.clusters.Values.ToArray().AsSpan();
 
             double total = 0;
             int count = 0;
 
             // 各クラスタごと
-            for (int c = 0; c < clusters.Count; c++)
+            for (int c = 0; c < clusters.Length; c++)
             {
                 var own = clusters[c];
 
@@ -100,7 +98,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                     // b(i): 他クラスタの最小平均距離
                     double b = double.MaxValue;
 
-                    for (int other = 0; other < clusters.Count; other++)
+                    for (int other = 0; other < clusters.Length; other++)
                     {
                         if (other == c) continue;
 

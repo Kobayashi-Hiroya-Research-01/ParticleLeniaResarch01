@@ -1,10 +1,11 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using Assets.ParticleLenia.Scripts;
+using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
+using NUnit.Framework;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using XCharts.Runtime;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -16,7 +17,10 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <typeparam name="T">The type of items in the index.</typeparam>
     public class ListSpatialIndex<T> where T : IPointData
     {
-        public List<PointInfo<T>> List { get; }
+        private readonly List<PointInfo<T>> pointInfos;
+        private DistanceSquareCache distanceSquares;
+
+        public List<PointInfo<T>> List => pointInfos;
 
         /// <summary>
         /// Initializes a <see cref="ListSpatialIndex{T}"/> with a collection of data, using the
@@ -26,7 +30,18 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// <param name="distanceFunction">The function used to determine if a point is within a specified distance of a given point.</param>
         public ListSpatialIndex()
         {
-            List = new List<PointInfo<T>>();
+            pointInfos = new();
+        }
+
+        public void Clear()
+        {
+            pointInfos.Clear();
+            distanceSquares.Reset(pointInfos.Count);
+        }
+
+        public void Reset()
+        {
+            distanceSquares.Reset(pointInfos.Count);
         }
 
         /// <summary>
@@ -43,28 +58,16 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         {
             foreach (var q in List)
             {
-                if (Distance(p, q.Item) < epsilon)
+                if (DistanceSquares(p, q.Item) < epsilon * epsilon)
                 {
                     onFind(q);
                 }
             }
         }
 
-        private double Distance(in T a, in T b)
+        private double DistanceSquares(in T a, in T b)
         {
-            var ai = a.Point;
-            var bi = b.Point;
-
-            var sqDistance = 0.0;
-
-            for (var i = 0; i < ai.Length; i++)
-            {
-                var dx = ai[i] - bi[i];
-                sqDistance += dx * dx;
-            }
-
-            //return pos;
-            return Math.Sqrt(sqDistance);
+            return distanceSquares[a.Index, a.Point, b.Index, b.Point];
         }
     }
 }

@@ -6,6 +6,5 @@
         Continuous_FowlkesMallowsIndex,
         Continuous_FowlkesMallowsLike,
         OrderByCount,
-        OrderByLifeTime,
     }
 }

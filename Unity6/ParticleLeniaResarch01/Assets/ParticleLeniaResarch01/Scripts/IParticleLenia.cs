@@ -1,16 +1,15 @@
-using System;
+using Assets.ParticleLeniaResarch01.Analyzers;
+using Assets.ParticleLeniaResarch01.Scripts.Data;
+using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
+using static Unity.VisualScripting.Member;
 
-namespace Assets.ParticleLeniaResarch01.Scripts.Data
+namespace Assets.ParticleLeniaResarch01.Scripts
 {
     /// <summary>
     /// ParticleLeniaのシミュレーションを一般化するインターフェース
     /// </summary>
     public interface IParticleLenia
     {
-        public delegate void PostParticleAction(ParticleInfo newInfo, int index);
-
-        public delegate void PostStepAction();
-
         /// <summary>
         /// シミュレーション詳細の説明
         /// </summary>
@@ -35,18 +34,17 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         /// 初期化
         /// </summary>
         /// <param name="postAction"></param>
-        void Init(PostParticleAction postAction);
+        ParticleInfoArray Init(ParticleLeniaAnalyzerForeachEvent forEachCreatedParticle);
 
         /// <summary>
         /// ステップの更新
         /// </summary>
-        /// <param name="step"></param>
-        void Next(int step, PostParticleAction intermediatePostAction, PostParticleAction lastPostAction, PostStepAction postStepAction);
+        ParticleInfoArray Next(ParticleLeniaAnalyzerForeachEvent forEachUpdatedParticle);
 
         /// <summary>
         /// 現在の粒子状態
         /// </summary>
         /// <returns></returns>
-        ParticleInfoArray GetResult();
+        ParticleInfoArray GetLastResult();
     }
 }

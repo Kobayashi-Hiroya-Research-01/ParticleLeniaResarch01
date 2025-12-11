@@ -56,6 +56,21 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         {
         }
 
+        public ParticleInfoArray Clone()
+        {
+            var length = array.Length;
+            var clone = new ParticleInfoArray(length, Time, Step);
+
+            for (int i = 0; i < length; i++)
+            {
+                var particle = this[i];
+                var particleClone = new ParticleInfo(particle.fields, particle.position.ToArray(), particle.lastGt, particle.lastRt, particle.lastUt);
+                clone[i] = particleClone;
+            }
+
+            return clone;
+        }
+
         public Record ToRecord(IParticleFieldsSerializer serializer)
         {
             var array = this.array.Select(e => e.ToRecord(serializer)).ToArray();

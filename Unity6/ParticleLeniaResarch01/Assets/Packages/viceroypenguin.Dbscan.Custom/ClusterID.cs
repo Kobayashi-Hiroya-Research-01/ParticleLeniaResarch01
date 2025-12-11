@@ -19,6 +19,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public void UpdateValue(int value)
         {
+            if (ReferenceEquals(this, UnclusteredID)) throw new NotSupportedException();
             Value = value;
         }
 

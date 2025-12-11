@@ -1,33 +1,51 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Drawing;
 using System.Linq;
+using XCharts.Runtime;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
+    public static class Dbscan
+    {
+        public interface IOption
+        {
+            public double Epsilon { get; set; }
+            public int MinimumPointsPerCluster { get; set; }
+
+            public void CopyTo(IOption other)
+            {
+                other.Epsilon = Epsilon;
+                other.MinimumPointsPerCluster = MinimumPointsPerCluster;
+            }
+        }
+    }
+
     /// <summary>
     /// Contains static methods to run the DBSCAN algorithm.
     /// </summary>
-    public class Dbscan<TPoint, TCluster> : IDbscan<TPoint, TCluster> where TPoint : IPointData
+    public class Dbscan<TPoint, TCluster> : Dbscan.IOption
+        where TPoint : IPointData
         where TCluster : Cluster<TPoint>, new()
     {
-        private int lastIDValue = 0;
         private readonly ListSpatialIndex<TPoint> pointInfos;
         private readonly Queue<PointInfo<TPoint>> queue;
-
-        public double Epsilon { get; set; } = 0.1;
-        public int MinimumPointsPerCluster { get; set; } = 2;
 
         public Dbscan()
         {
             pointInfos = new ListSpatialIndex<TPoint>();
             queue = new Queue<PointInfo<TPoint>>();
         }
+
+        public Dbscan(Dbscan.IOption option) : this()
+        {
+            option.CopyTo(this);
+        }
+
+        public double Epsilon { get; set; }
+        public int MinimumPointsPerCluster { get; set; }
 
         public void AddPoint(TPoint data)
         {
@@ -36,9 +54,15 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public ClusterSet<TPoint, TCluster> CalculateClusters(Action<TPoint, TCluster> onClustered)
         {
-            var clusters = new List<TCluster>();
+            queue.Clear();
+            pointInfos.Reset();
 
-            foreach (var pointInfo in pointInfos.List)
+            var points = pointInfos.List;
+            var clusters = new Dictionary<int, TCluster>(points.Count);
+
+            int clusterIndex = 0;
+
+            foreach (var pointInfo in points)
             {
                 if (pointInfo.Visited) continue;
 
@@ -48,8 +72,8 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
                 if (queue.Count >= MinimumPointsPerCluster)
                 {
-                    var cluster = BuildCluster(pointInfo, onClustered);
-                    clusters.Add(cluster);
+                    var cluster = BuildCluster(clusterIndex++, pointInfo, onClustered);
+                    clusters.Add(cluster.ClusterID.Value, cluster);
                 }
                 else
                 {
@@ -57,15 +81,15 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 }
             }
 
+            var unclusteredObjects = new List<TPoint>(points.Count - clusters.Count);
             var unclusteredObjectsCluster = new TCluster();
-            var unclusteredObjects = new List<TPoint>();
             unclusteredObjectsCluster.Init(ClusterID.UnclusteredID, unclusteredObjects);
 
-            foreach (var pointInfo in pointInfos.List)
+            foreach (var pointInfo in points)
             {
                 if (!pointInfo.Clustered)
                 {
-                    onClustered(pointInfo.Item, unclusteredObjectsCluster);
+                    onClustered?.Invoke(pointInfo.Item, unclusteredObjectsCluster);
                     unclusteredObjects.Add(pointInfo.Item);
                 }
                 else
@@ -79,17 +103,22 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             return new ClusterSet<TPoint, TCluster>(clusters, unclusteredObjectsCluster);
         }
 
-        private TCluster BuildCluster(PointInfo<TPoint> corePointInfo, Action<TPoint, TCluster> onClustered)
+        public void Reset()
         {
-            int clusterIDValue = (lastIDValue == int.MaxValue) ? 0 : (lastIDValue + 1);
-            lastIDValue = clusterIDValue;
+            pointInfos.Clear();
+            queue.Clear();
+        }
+
+        private TCluster BuildCluster(int index, PointInfo<TPoint> corePointInfo, Action<TPoint, TCluster> onClustered)
+        {
+            int clusterIDValue = index;
             var clusterID = new ClusterID(clusterIDValue);
             var objects = new List<TPoint>();
             var cluster = new TCluster();
             cluster.Init(clusterID, objects);
 
             corePointInfo.Clustered = true;
-            onClustered(corePointInfo.Item, cluster);
+            onClustered?.Invoke(corePointInfo.Item, cluster);
             objects.Add(corePointInfo.Item);
 
             while (queue.Count > 0)
