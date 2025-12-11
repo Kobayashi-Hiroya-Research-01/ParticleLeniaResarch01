@@ -1,6 +1,7 @@
 using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Analyzers;
+using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -97,33 +98,48 @@ public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrack
 
         public OrderBy orderBy;
 
+        public int count;
+        public double clusterSizeAverage;
+        public double lifeTimeAverage;
+
         public Item[] clusterInfoList;
 
-        public void Update(IEnumerable<IClusterTrackingCluster> clusters)
+        public void Update(Span<ClusterTrackingCluster<ClusterTrackingDbscanAnalyzer.Point>> clusters)
         {
-            var unordered = clusters
-                .Select(e =>
+            var items = new List<Item>(clusters.Length);
+            count = clusters.Length;
+            clusterSizeAverage = lifeTimeAverage = 0.0;
+
+            foreach (var e in clusters)
+            {
+                clusterSizeAverage += e.Count;
+                lifeTimeAverage += e.LifeTime;
+
+                var newItem = new Item()
                 {
-                    return new Item()
-                    {
-                        id = e.ClusterID.Value,
-                        count = e.Count,
-                        lifeTime = e.LifeTime
-                    };
-                });
+                    id = e.ClusterID.Value,
+                    count = e.Count,
+                    lifeTime = e.LifeTime
+                };
+
+                items.Add(newItem);
+            }
+
+            clusterSizeAverage /= count;
+            lifeTimeAverage /= count;
 
             switch (orderBy)
             {
                 case OrderBy.LifeTime:
-                    clusterInfoList = unordered.OrderByDescending(e => e.lifeTime).ToArray();
+                    clusterInfoList = items.OrderByDescending(e => e.lifeTime).ToArray();
                     break;
 
                 case OrderBy.ID:
-                    clusterInfoList = unordered.OrderByDescending(e => e.id).ToArray();
+                    clusterInfoList = items.OrderByDescending(e => e.id).ToArray();
                     break;
 
                 case OrderBy.Count:
-                    clusterInfoList = unordered.OrderByDescending(e => e.count).ToArray();
+                    clusterInfoList = items.OrderByDescending(e => e.count).ToArray();
                     break;
             }
         }
@@ -181,7 +197,8 @@ public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrack
         {
             debugInfo ??= new DebugInfo();
 
-            debugInfo.Update(result.Values);
+            var values = result.Values;
+            debugInfo.Update(values);
         }
     }
 

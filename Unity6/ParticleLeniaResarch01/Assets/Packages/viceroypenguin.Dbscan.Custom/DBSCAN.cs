@@ -26,7 +26,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <summary>
     /// Contains static methods to run the DBSCAN algorithm.
     /// </summary>
-    public class Dbscan<TPoint, TCluster> : Dbscan.IOption
+    public class Dbscan<TPoint, TCluster> : Dbscan.IOption, IDbscan<TPoint, TCluster>
         where TPoint : IPointData
         where TCluster : Cluster<TPoint>, new()
     {
@@ -49,16 +49,16 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public void AddPoint(TPoint data)
         {
-            pointInfos.List.Add(new PointInfo<TPoint>(data));
+            pointInfos.Add(new PointInfo<TPoint>(data));
         }
 
-        public ClusterSet<TPoint, TCluster> CalculateClusters(Action<TPoint, TCluster> onClustered)
+        public ClusterSet<TPoint, TCluster> CalculateClusters()
         {
             queue.Clear();
             pointInfos.Reset();
 
-            var points = pointInfos.List;
-            var clusters = new Dictionary<int, TCluster>(points.Count);
+            var points = pointInfos.Items;
+            var clusters = new Dictionary<int, TCluster>(points.Length);
 
             int clusterIndex = 0;
 
@@ -68,11 +68,11 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
                 pointInfo.Visited = true;
                 queue.Enqueue(pointInfo);
-                pointInfos.Search(pointInfo.Item, Epsilon, OnFind);
+                SearchAndEnqueue(pointInfo.Item);
 
                 if (queue.Count >= MinimumPointsPerCluster)
                 {
-                    var cluster = BuildCluster(clusterIndex++, pointInfo, onClustered);
+                    var cluster = BuildCluster(clusterIndex++, pointInfo, points.Length);
                     clusters.Add(cluster.ClusterID.Value, cluster);
                 }
                 else
@@ -81,7 +81,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 }
             }
 
-            var unclusteredObjects = new List<TPoint>(points.Count - clusters.Count);
+            var unclusteredObjects = new List<TPoint>(points.Length - clusters.Count);
             var unclusteredObjectsCluster = new TCluster();
             unclusteredObjectsCluster.Init(ClusterID.UnclusteredID, unclusteredObjects);
 
@@ -89,7 +89,6 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             {
                 if (!pointInfo.Clustered)
                 {
-                    onClustered?.Invoke(pointInfo.Item, unclusteredObjectsCluster);
                     unclusteredObjects.Add(pointInfo.Item);
                 }
                 else
@@ -103,22 +102,44 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             return new ClusterSet<TPoint, TCluster>(clusters, unclusteredObjectsCluster);
         }
 
+        public ClusterSet<TPoint, TCluster> CalculateClusters(Action<TPoint, TCluster> onClustered)
+        {
+            var set = CalculateClusters();
+
+            if (onClustered != null)
+            {
+                foreach (var cluster in set.Values)
+                {
+                    foreach (var point in cluster)
+                    {
+                        onClustered(point, cluster);
+                    }
+                }
+
+                foreach (var point in set.UnclusteredObjects)
+                {
+                    onClustered(point, set.UnclusteredObjects);
+                }
+            }
+
+            return set;
+        }
+
         public void Reset()
         {
             pointInfos.Clear();
             queue.Clear();
         }
 
-        private TCluster BuildCluster(int index, PointInfo<TPoint> corePointInfo, Action<TPoint, TCluster> onClustered)
+        private TCluster BuildCluster(int index, PointInfo<TPoint> corePointInfo, int capacity)
         {
             int clusterIDValue = index;
             var clusterID = new ClusterID(clusterIDValue);
-            var objects = new List<TPoint>();
+            var objects = new List<TPoint>(capacity: capacity);
             var cluster = new TCluster();
             cluster.Init(clusterID, objects);
 
             corePointInfo.Clustered = true;
-            onClustered?.Invoke(corePointInfo.Item, cluster);
             objects.Add(corePointInfo.Item);
 
             while (queue.Count > 0)
@@ -128,22 +149,25 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 if (!newPoint.Visited)
                 {
                     newPoint.Visited = true;
-
-                    pointInfos.Search(newPoint.Item, Epsilon, OnFind);
+                    SearchAndEnqueue(newPoint.Item);
                 }
 
                 if (!newPoint.Clustered)
                 {
                     newPoint.Clustered = true;
-                    onClustered?.Invoke(newPoint.Item, cluster);
                     objects.Add(newPoint.Item);
                 }
             }
-
+            objects.TrimExcess();
             return cluster;
         }
 
-        private void OnFind(PointInfo<TPoint> pInfo)
+        private void SearchAndEnqueue(TPoint point)
+        {
+            pointInfos.Search(point, Epsilon, Enqueue);
+        }
+
+        private void Enqueue(PointInfo<TPoint> pInfo)
         {
             if (!pInfo.Visited)
             {

@@ -13,6 +13,9 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         int MinimumPointsPerCluster { get; set; }
 
         void AddPoint(TPoint data);
+
+        ClusterSet<TPoint, TCluster> CalculateClusters();
+
         ClusterSet<TPoint, TCluster> CalculateClusters(Action<TPoint, TCluster> onClustered);
     }
 }

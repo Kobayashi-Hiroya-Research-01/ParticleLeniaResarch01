@@ -198,7 +198,19 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
         public void AllUpdated(ParticleInfoArray particles)
         {
             UpdateNormalizedWeight();
-            var set = ClusterTrackingDbscan.CalculateClusters(OnClusteredWithMyName);
+            var set = ClusterTrackingDbscan.CalculateClusters();
+            foreach (var cluster in set.Values)
+            {
+                foreach (var point in cluster)
+                {
+                    OnClustered?.Invoke(point, cluster, ClusteringName);
+                }
+            }
+
+            foreach (var point in set.UnclusteredObjects)
+            {
+                OnClustered?.Invoke(point, set.UnclusteredObjects, ClusteringName);
+            }
         }
 
         private void OnClusteredWithMyName(Point point, ClusterTrackingCluster<Point> cluster)

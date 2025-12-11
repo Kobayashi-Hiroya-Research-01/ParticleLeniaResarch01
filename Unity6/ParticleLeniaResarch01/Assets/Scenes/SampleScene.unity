@@ -3555,20 +3555,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PLClusteringAnalyzerController
   debugInfo:
     orderBy: 0
+    count: 0
+    clusterSizeAverage: 0
+    lifeTimeAverage: 0
     clusterInfoList: []
   clusteringName: Component
   clusterTrackingOption:
     dbscanOption:
-      epsilon: 3
+      epsilon: 2
       minimumPointsPerCluster: 2
-    trackingMode: 2
+    trackingMode: 1
     continuousRatio: 0.49000000953674316
     startIndex: 0
   pointSettingsOption:
     <PointMode>k__BackingField: 1
     <EWeight>k__BackingField: 1
-    <UtWeight>k__BackingField: 1
-    <RtWeight>k__BackingField: 1
+    <UtWeight>k__BackingField: 0.5
+    <RtWeight>k__BackingField: 0.5
     <NormalizeStatusByPositionRange>k__BackingField: 1
     <NormalizeStatusByDimension>k__BackingField: 0
 --- !u!1 &361345794
@@ -4835,6 +4838,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PLClusteringAnalyzerController
   debugInfo:
     orderBy: 0
+    count: 0
+    clusterSizeAverage: 0
+    lifeTimeAverage: 0
     clusterInfoList: []
   clusteringName: Unit
   clusterTrackingOption:
@@ -4847,8 +4853,8 @@ MonoBehaviour:
   pointSettingsOption:
     <PointMode>k__BackingField: 1
     <EWeight>k__BackingField: 1
-    <UtWeight>k__BackingField: 1
-    <RtWeight>k__BackingField: 1
+    <UtWeight>k__BackingField: 0.5
+    <RtWeight>k__BackingField: 0.5
     <NormalizeStatusByPositionRange>k__BackingField: 1
     <NormalizeStatusByDimension>k__BackingField: 0
 --- !u!1 &533796965

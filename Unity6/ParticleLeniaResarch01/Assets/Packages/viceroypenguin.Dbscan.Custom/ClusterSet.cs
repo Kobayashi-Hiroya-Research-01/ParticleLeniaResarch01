@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Unity.VisualScripting;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -13,39 +14,40 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// The result of running the DBSCAN algorithm on a set of data.
     /// </summary>
     /// <typeparam name="TPoint">The type of elements in the cluster.</typeparam>
-    public class ClusterSet<TPoint, TCluster> : IReadOnlyDictionary<int, TCluster>
+    public class ClusterSet<TPoint, TCluster>
         where TPoint : IPointData
         where TCluster : Cluster<TPoint>, new()
     {
         private Dictionary<int, TCluster> clusters;
 
+        private int[] keys;
+        private TCluster[] values;
+
         public ClusterSet(Dictionary<int, TCluster> clusters, TCluster unclusteredObjectsCluster)
+
         {
             this.clusters = clusters;
             UnclusteredObjects = unclusteredObjectsCluster;
         }
 
         /// <summary>
-        /// A list of the clusters that have been identified.
-        /// </summary>
-        public ReadOnlyDictionary<int, TCluster> ClustersDict => new(clusters);
-
-        /// <summary>
         /// A list of the items that were not identified as being part of a cluster.
         /// </summary>
         public TCluster UnclusteredObjects { get; }
 
-        public IEnumerable<int> Keys => ((IReadOnlyDictionary<int, TCluster>)ClustersDict).Keys;
+        public Span<int> Keys => keys ??= clusters.Keys.ToArray();
 
-        public IEnumerable<TCluster> Values => ((IReadOnlyDictionary<int, TCluster>)ClustersDict).Values;
+        public Span<TCluster> Values => values ??= clusters.Values.ToArray();
 
-        public int Count => ((IReadOnlyCollection<KeyValuePair<int, TCluster>>)ClustersDict).Count;
+        public int Count => clusters.Count;
 
-        public TCluster this[int key] => ((IReadOnlyDictionary<int, TCluster>)ClustersDict)[key];
+        public TCluster this[int key] => clusters[key];
 
-        public void UpdateDict()
+        public void UpdateIDs()
         {
             clusters = clusters.Values.ToDictionary(e => e.ClusterID.Value);
+            keys = null;
+            values = null;
         }
 
         public double SilhouetteCoefficient()
@@ -122,24 +124,9 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             return count > 0 ? total / count : 0;
         }
 
-        public bool ContainsKey(int key)
-        {
-            return ((IReadOnlyDictionary<int, TCluster>)ClustersDict).ContainsKey(key);
-        }
-
         public bool TryGetValue(int key, out TCluster value)
         {
-            return ((IReadOnlyDictionary<int, TCluster>)ClustersDict).TryGetValue(key, out value);
-        }
-
-        public IEnumerator<KeyValuePair<int, TCluster>> GetEnumerator()
-        {
-            return ((IEnumerable<KeyValuePair<int, TCluster>>)ClustersDict).GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable)ClustersDict).GetEnumerator();
+            return clusters.TryGetValue(key, out value);
         }
     }
 }

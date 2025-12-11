@@ -19,8 +19,8 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     {
         private readonly List<PointInfo<T>> pointInfos;
         private DistanceSquareCache distanceSquares;
-
-        public List<PointInfo<T>> List => pointInfos;
+        private PointInfo<T>[] array;
+        public Span<PointInfo<T>> Items => array;
 
         /// <summary>
         /// Initializes a <see cref="ListSpatialIndex{T}"/> with a collection of data, using the
@@ -33,15 +33,22 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             pointInfos = new();
         }
 
+        public void Add(PointInfo<T> item)
+        {
+            pointInfos.Add(item);
+        }
+
         public void Clear()
         {
             pointInfos.Clear();
             distanceSquares.Reset(pointInfos.Count);
+            array = System.Array.Empty<PointInfo<T>>();
         }
 
         public void Reset()
         {
             distanceSquares.Reset(pointInfos.Count);
+            array = pointInfos.ToArray();
         }
 
         /// <summary>
@@ -56,7 +63,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// </returns>
         public void Search(in T p, double epsilon, Action<PointInfo<T>> onFind)
         {
-            foreach (var q in List)
+            foreach (var q in array)
             {
                 if (DistanceSquares(p, q.Item) < epsilon * epsilon)
                 {
