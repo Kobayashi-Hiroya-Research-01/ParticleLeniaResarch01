@@ -1,11 +1,12 @@
 ﻿using System;
-using UnityEditor.Experimental.GraphView;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
 {
     [Serializable]
     public class MinMax
     {
+        public object Lock { get; } = new();
+
         public class Writerble : MinMax
         {
             public Writerble() : base()
@@ -22,14 +23,20 @@ namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
 
             public void Reset()
             {
-                Min = double.MaxValue;
-                Max = double.MinValue;
+                lock (Lock)
+                {
+                    Min = double.MaxValue;
+                    Max = double.MinValue;
+                }
             }
 
             public void Update(double value)
             {
-                if (value < Min) Min = value;
-                if (value > Max) Max = value;
+                lock (Lock)
+                {
+                    if (value < Min) Min = value;
+                    if (value > Max) Max = value;
+                }
             }
         }
 
@@ -47,16 +54,26 @@ namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
         {
         }
 
-        public MinMax(double min, double max)
+        private MinMax(double min, double max)
         {
-            this.Min = min;
-            this.Max = max;
+            Min = min;
+            Max = max;
         }
 
         public double GetRate(double value)
         {
             if (Max == Min) return 0.0;
             return (value - Min) / (Max - Min);
+        }
+
+        public override string ToString()
+        {
+            return $"{{ min={Format(Min)}, max={Format(Max)} }}";
+        }
+
+        private static string Format(double value)
+        {
+            return $"{value,8:F5}";
         }
     }
 }
