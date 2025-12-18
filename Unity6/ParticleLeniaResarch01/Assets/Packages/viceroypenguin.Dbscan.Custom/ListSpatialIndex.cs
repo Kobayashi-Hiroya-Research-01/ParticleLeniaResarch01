@@ -7,12 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-#if UNITY_EDITOR
-
-using UnityEngine;
-
-#endif
-
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
     /// <summary>
@@ -56,7 +50,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         private const int _D_Start = 1;
         private const int _D_End = 20 * 60 * 5;
-        private readonly DebugTextWriter _D_PointInfos = new("PointInfos");
+        private readonly DebugTextWriter _D_PointInfos = new("PointInfos", killed: true);
 
         public void Reset(double epsilon)
         {
@@ -66,18 +60,8 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
             Parallel.ForEach(array, SearchNear);
 
-            //DebugWrite(_D_PointInfos, () => string.Join(", ", pointInfos));
+            _D_PointInfos.AppendWithLog(() => string.Join(", ", pointInfos), _D_Start, _D_End);
         }
-
-#if UNITY_EDITOR
-
-        private static void DebugWrite(DebugTextWriter writer, Func<string> content)
-        {
-            var result = writer.Append(content, _D_Start, _D_End);
-            if (result == DebugTextWriter.EndCode.CLOSE) Debug.Log($"Write debug texts to {writer.FileInfo.FullName}");
-        }
-
-#endif
 
         private void SearchNear(PointInfo<T> point_i)
         {
