@@ -2,11 +2,8 @@
 // and edited by this project.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using Unity.VisualScripting;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -20,14 +17,20 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     {
         private Dictionary<int, TCluster> clusters;
 
-        private int[] keys;
         private TCluster[] values;
 
         public ClusterSet(Dictionary<int, TCluster> clusters, TCluster unclusteredObjectsCluster)
 
         {
             this.clusters = clusters;
+            values ??= clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
             UnclusteredObjects = unclusteredObjectsCluster;
+        }
+
+        public void CopyTo(ClusterSet<TPoint, TCluster> other)
+        {
+            other.clusters = new Dictionary<int, TCluster>(clusters);
+            other.values = values.ToArray();
         }
 
         /// <summary>
@@ -35,18 +38,15 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// </summary>
         public TCluster UnclusteredObjects { get; }
 
-        public Span<int> Keys => keys ??= clusters.Keys.ToArray();
-
         public Span<TCluster> Values => values ??= clusters.Values.ToArray();
 
         public int Count => clusters.Count;
 
-        public TCluster this[int key] => clusters[key];
+        public TCluster this[int key] => clusters.GetValueOrDefault(key);
 
         public void UpdateIDs()
         {
             clusters = clusters.Values.ToDictionary(e => e.ClusterID.Value);
-            keys = null;
             values = null;
         }
 

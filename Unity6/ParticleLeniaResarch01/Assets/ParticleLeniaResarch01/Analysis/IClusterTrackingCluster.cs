@@ -4,6 +4,6 @@ namespace Assets.ParticleLeniaResarch01.Analysis
 {
     public interface IClusterTrackingCluster : ICluster
     {
-        public int LifeTime { get; }
+        int LifeTime { get; }
     }
 }

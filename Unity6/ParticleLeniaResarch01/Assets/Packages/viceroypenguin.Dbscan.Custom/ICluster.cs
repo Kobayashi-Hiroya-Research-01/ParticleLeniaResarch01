@@ -6,6 +6,6 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     public interface ICluster
     {
         ClusterID ClusterID { get; }
-        public int Count { get; }
+        int Count { get; }
     }
 }

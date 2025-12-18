@@ -1,6 +1,10 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
     /// <summary>
@@ -32,5 +36,33 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// Whether or not this point has been visited
         /// </summary>
         public bool Visited { get; set; }
+
+        public void CopyTo(PointInfo<T> other)
+        {
+            other.Clustered = Clustered;
+            other.Visited = Visited;
+        }
+
+        private readonly List<PointInfo<T>> near = new();
+
+        public void AddNear(PointInfo<T> item)
+        {
+            near.Add(item);
+        }
+
+        public void MakeNearArray()
+        {
+            nearArray = near.ToArray();
+            near.Clear();
+        }
+
+        private PointInfo<T>[] nearArray;
+
+        public ReadOnlySpan<PointInfo<T>> NearArray => nearArray;
+
+        public override string ToString()
+        {
+            return $"[{Item.Index}, ({string.Join(", ", Item.Point.ToArray().Select(e => $"{e,8:F5}"))}), {nearArray.Length,4}]";
+        }
     }
 }

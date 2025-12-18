@@ -1,11 +1,17 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
+using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
-using XCharts.Runtime;
+using System.Threading.Tasks;
+
+#if UNITY_EDITOR
+
+using UnityEngine;
+
+#endif
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -18,8 +24,10 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     public class ListSpatialIndex<T> where T : IPointData
     {
         private readonly List<PointInfo<T>> pointInfos;
-        private DistanceSquareCache distanceSquares;
         private PointInfo<T>[] array;
+        private double epsilon;
+        private double epsilon2;
+
         public Span<PointInfo<T>> Items => array;
 
         /// <summary>
@@ -33,6 +41,8 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             pointInfos = new();
         }
 
+        public PointInfo<T> this[int index] => array[index];
+
         public void Add(PointInfo<T> item)
         {
             pointInfos.Add(item);
@@ -41,14 +51,50 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         public void Clear()
         {
             pointInfos.Clear();
-            distanceSquares.Reset(pointInfos.Count);
-            array = System.Array.Empty<PointInfo<T>>();
+            array = Array.Empty<PointInfo<T>>();
         }
 
-        public void Reset()
+        private const int _D_Start = 1;
+        private const int _D_End = 20 * 60 * 5;
+        private readonly DebugTextWriter _D_PointInfos = new("PointInfos");
+
+        public void Reset(double epsilon)
         {
-            distanceSquares.Reset(pointInfos.Count);
+            this.epsilon = epsilon;
+            epsilon2 = epsilon * epsilon;
             array = pointInfos.ToArray();
+
+            Parallel.ForEach(array, SearchNear);
+
+            //DebugWrite(_D_PointInfos, () => string.Join(", ", pointInfos));
+        }
+
+#if UNITY_EDITOR
+
+        private static void DebugWrite(DebugTextWriter writer, Func<string> content)
+        {
+            var result = writer.Append(content, _D_Start, _D_End);
+            if (result == DebugTextWriter.EndCode.CLOSE) Debug.Log($"Write debug texts to {writer.FileInfo.FullName}");
+        }
+
+#endif
+
+        private void SearchNear(PointInfo<T> point_i)
+        {
+            foreach (var point_j in array)
+            {
+                if (point_i != point_j && DistanceSquares(point_i.Item, point_j.Item) < epsilon2)
+                {
+                    point_i.AddNear(point_j);
+                }
+            }
+
+            point_i.MakeNearArray();
+        }
+
+        private double DistanceSquares(in T a, in T b)
+        {
+            return DistanceSquareCache.DistanceSquare(a.Point, b.Point);
         }
 
         /// <summary>
@@ -61,20 +107,21 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// <returns>
         /// A list of the points that are within the search area.
         /// </returns>
-        public void Search(in T p, double epsilon, Action<PointInfo<T>> onFind)
+        public ReadOnlySpan<PointInfo<T>> Search(in T p)
         {
-            foreach (var q in array)
-            {
-                if (DistanceSquares(p, q.Item) < epsilon * epsilon)
-                {
-                    onFind(q);
-                }
-            }
+            return array[p.Index].NearArray;
         }
 
-        private double DistanceSquares(in T a, in T b)
+        public void CopyTo(ListSpatialIndex<T> other)
         {
-            return distanceSquares[a.Index, a.Point, b.Index, b.Point];
+            other.pointInfos.Clear();
+            foreach (var point in array)
+            {
+                var copied = new PointInfo<T>(point.Item);
+                point.CopyTo(copied);
+                other.Add(copied);
+            }
+            other.Reset(epsilon);
         }
     }
 }

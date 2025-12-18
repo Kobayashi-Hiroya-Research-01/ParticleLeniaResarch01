@@ -30,6 +30,20 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             Objects = objects.AsReadOnly();
         }
 
+        public virtual void CopyTo(Cluster<T> other)
+        {
+            if (other.ClusterID == null)
+            {
+                other.ClusterID = new ClusterID(ClusterID.Value);
+            }
+            else
+            {
+                other.ClusterID.UpdateValue(ClusterID.Value);
+            }
+
+            other.Objects = new(Objects);
+        }
+
         public IEnumerator<T> GetEnumerator()
         {
             return Objects.GetEnumerator();

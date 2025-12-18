@@ -1,23 +1,23 @@
 ﻿using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using UnityEngine;
 
 namespace Assets.ParticleLeniaResarch01.Analysis
 {
-    public static class ClusterTrackingDbscan
+    using Cluster = ClusterTrackingCluster<ClusterTrackingPoint>;
+    using Point = ClusterTrackingPoint;
+
+    public class ClusterTrackingDbscan : ClusterTrackingDbscan.IState, IDbscan<Point, Cluster>
     {
         public interface IOption
         {
-            public Dbscan.IOption DbscanOption { get; set; }
+            Dbscan.IOption DbscanOption { get; }
+            ClusterTrackingMode TrackingMode { get; set; }
+            int StartIndex { get; set; }
+            double ContinuousRatio { get; set; }
 
-            public ClusterTrackingMode TrackingMode { get; set; }
-            public int StartIndex { get; set; }
-            public double ContinuousRatio { get; set; }
-
-            public void CopyTo(IOption other)
+            void CopyTo(IOption other)
             {
                 DbscanOption.CopyTo(other.DbscanOption);
                 other.TrackingMode = TrackingMode;
@@ -25,48 +25,60 @@ namespace Assets.ParticleLeniaResarch01.Analysis
                 other.ContinuousRatio = ContinuousRatio;
             }
         }
-    }
 
-    public class ClusterTrackingDbscan<TPoint> : ClusterTrackingDbscan.IOption, IDbscan<TPoint, ClusterTrackingCluster<TPoint>>
-        where TPoint : IClusterTrackingPointData
-    {
-        private readonly Dbscan<TPoint, ClusterTrackingCluster<TPoint>> dbscan;
-        private ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> lastResult;
+        public interface IState : IOption
+        {
+            int LastID { get; set; }
+
+            Dbscan<Point, Cluster>.IState DbscanState { get; }
+            ClusterSet<Point, Cluster> LastResult { get; }
+
+            void CopyTo(IState other)
+            {
+                AsOption.CopyTo(other);
+                //DbscanState.CopyTo(other.DbscanState);
+                //LastResult.CopyTo(other.LastResult);
+                other.LastID = LastID;
+            }
+
+            IOption AsOption => this;
+        }
+
+        private readonly Dbscan<Point, Cluster> dbscan;
+        private ClusterSet<Point, Cluster> lastResult;
 
         public ClusterTrackingDbscan()
         {
-            dbscan = new Dbscan<TPoint, ClusterTrackingCluster<TPoint>>();
-            var clusters = new Dictionary<int, ClusterTrackingCluster<TPoint>>();
-            var unclusteredObjectsCluster = new ClusterTrackingCluster<TPoint>(ClusterID.UnclusteredID);
-            lastResult = new ClusterSet<TPoint, ClusterTrackingCluster<TPoint>>(clusters, unclusteredObjectsCluster);
-        }
-
-        public ClusterTrackingDbscan(ClusterTrackingDbscan.IOption option) : this()
-        {
-            option.CopyTo(this);
-        }
-
-        public void Reset()
-        {
-            dbscan.Reset();
-            var clusters = new Dictionary<int, ClusterTrackingCluster<TPoint>>();
-            var unclusteredObjectsCluster = new ClusterTrackingCluster<TPoint>(ClusterID.UnclusteredID);
-            lastResult = new ClusterSet<TPoint, ClusterTrackingCluster<TPoint>>(clusters, unclusteredObjectsCluster);
-        }
-
-        public Dbscan.IOption DbscanOption
-        {
-            get => dbscan;
-            set => value.CopyTo(dbscan);
+            dbscan = new Dbscan<Point, Cluster>();
+            var clusters = new Dictionary<int, Cluster>();
+            var unclusteredObjectsCluster = new Cluster(ClusterID.UnclusteredID);
+            lastResult = new ClusterSet<Point, Cluster>(clusters, unclusteredObjectsCluster);
+            LastID = -1;
         }
 
         public ClusterTrackingMode TrackingMode { get; set; }
         public int StartIndex { get; set; }
         public double ContinuousRatio { get; set; }
+        public int LastID { get; set; }
 
-        public Dbscan<TPoint, ClusterTrackingCluster<TPoint>> Dbscan => dbscan;
+        public void Reset()
+        {
+            dbscan.Reset();
+            var clusters = new Dictionary<int, Cluster>();
+            var unclusteredObjectsCluster = new Cluster(ClusterID.UnclusteredID);
+            lastResult = new ClusterSet<Point, Cluster>(clusters, unclusteredObjectsCluster);
+            LastID = StartIndex;
+        }
 
-        public ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> LastResult => lastResult;
+        public IOption AsOption => this;
+
+        public IState AsState => this;
+
+        public Dbscan.IOption DbscanOption => dbscan;
+
+        public Dbscan<Point, Cluster> Dbscan => dbscan;
+
+        public ClusterSet<Point, Cluster> LastResult => lastResult;
 
         public double Epsilon
         {
@@ -80,12 +92,14 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             set => Dbscan.MinimumPointsPerCluster = value;
         }
 
-        public void AddPoint(TPoint data)
+        public Dbscan<Point, Cluster>.IState DbscanState => dbscan;
+
+        public void AddPoint(Point data)
         {
             Dbscan.AddPoint(data);
         }
 
-        public ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> CalculateClusters(Action<TPoint, ClusterTrackingCluster<TPoint>> onClustered)
+        public ClusterSet<Point, Cluster> CalculateClusters(Action<Point, Cluster> onClustered)
         {
             var set = CalculateClusters();
 
@@ -108,7 +122,7 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             return set;
         }
 
-        public ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> CalculateClusters()
+        public ClusterSet<Point, Cluster> CalculateClusters()
         {
             var set = Dbscan.CalculateClusters(OnClustered);
 
@@ -118,7 +132,7 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             return set;
         }
 
-        private void SetIdByTrackingMode(ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> set, ClusterTrackingMode trackingMode)
+        private void SetIdByTrackingMode(ClusterSet<Point, Cluster> set, ClusterTrackingMode trackingMode)
         {
             switch (trackingMode)
             {
@@ -153,7 +167,7 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             return p * r >= ContinuousRatio * ContinuousRatio;
         }
 
-        private void OnClustered(TPoint point, ClusterTrackingCluster<TPoint> cluster)
+        private void OnClustered(Point point, Cluster cluster)
         {
             var oldID = point.ClusterID.Value;
 
@@ -169,18 +183,11 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             point.ClusterID = cluster.ClusterID;
         }
 
-        private readonly Dictionary<int, ClusterTrackingCluster<TPoint>> trackedClusters = new();
-        private readonly HashSet<int> usedIDList = new();
+        private readonly Dictionary<int, Cluster> trackedClusters = new();
 
-        private void SetIDByContinuousTracking(ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> clusters, Func<double, double, bool> condition)
+        private void SetIDByContinuousTracking(ClusterSet<Point, Cluster> clusters, Func<double, double, bool> condition)
         {
             trackedClusters.Clear();
-            usedIDList.Clear();
-
-            foreach (var oldId in lastResult.Keys)
-            {
-                usedIDList.Add(oldId);
-            }
 
             foreach (var cluster in clusters.Values)
             {
@@ -221,17 +228,17 @@ namespace Assets.ParticleLeniaResarch01.Analysis
 
                 if (trackedID.sameCount == 0)
                 {
-                    id = GetNewID(usedIDList);
+                    id = GetNewID();
                     lifeTime = 1;
                 }
                 else if (trackedClusters.TryGetValue(trackedIDValue, out var sisterCluster))
                 {
                     if (sisterCluster.ClusterID.Value == trackedIDValue)
                     {
-                        UpdateClusterInfo(sisterCluster, GetNewID(usedIDList), 1);
+                        UpdateClusterInfo(sisterCluster, GetNewID(), 1);
                     }
 
-                    id = GetNewID(usedIDList);
+                    id = GetNewID();
                     lifeTime = 1;
                 }
                 else
@@ -243,12 +250,13 @@ namespace Assets.ParticleLeniaResarch01.Analysis
                 }
 
                 UpdateClusterInfo(cluster, id, lifeTime);
+                cluster.OldIDCount.Clear();
             }
 
             clusters.UpdateIDs();
         }
 
-        private void SetIDByOrderByCount(ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> clusters)
+        private void SetIDByOrderByCount(ClusterSet<Point, Cluster> clusters)
         {
             int i = StartIndex;
 
@@ -261,23 +269,28 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             clusters.UpdateIDs();
         }
 
-        private void UpdateClusterInfo(ClusterTrackingCluster<TPoint> cluster, int newIDValue, int lifeTime)
+        private void UpdateClusterInfo(Cluster cluster, int newIDValue, int lifeTime)
         {
             cluster.LifeTime = lifeTime;
             cluster.ClusterID.UpdateValue(newIDValue);
         }
 
-        private int GetNewID(HashSet<int> usedIDList)
+        private int GetNewID()
         {
-            for (int i = StartIndex + 1; i < int.MaxValue; i++)
+            if (LastID < StartIndex)
             {
-                if (usedIDList.Add(i))
-                {
-                    return i;
-                }
+                LastID = StartIndex;
+            }
+            else if (LastID < int.MaxValue)
+            {
+                LastID++;
+            }
+            else
+            {
+                throw new NotSupportedException();
             }
 
-            throw new NotSupportedException();
+            return LastID;
         }
     }
 }
