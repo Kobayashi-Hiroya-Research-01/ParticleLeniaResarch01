@@ -5,7 +5,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using UnityEngine;
 using static Assets.ParticleLeniaResarch01.Analyzers.ParticleLeniaAnalyzerTiming;
 
 namespace Assets.ParticleLeniaResarch01.Scripts
@@ -26,10 +25,13 @@ namespace Assets.ParticleLeniaResarch01.Scripts
 
             public ParticleLeniaAnalyzerEvents(ParticleLeniaAnalyzerTiming timing)
             {
+                loopStartArray = Array.Empty<ParticleLeniaAnalyzerEvent>();
+                loopEndArray = Array.Empty<ParticleLeniaAnalyzerEvent>();
+                foreachArray = Array.Empty<ParticleLeniaAnalyzerForeachEvent>();
                 this.timing = timing;
             }
 
-            public bool ForeachEnabled => foreachArray.Length > 0;
+            public bool ForeachEnabled => foreachArray != null && foreachArray.Length > 0;
 
             public void MakeArray()
             {
@@ -178,10 +180,29 @@ namespace Assets.ParticleLeniaResarch01.Scripts
 
         public void SetupDependencies(IParticleLenia particleLenia)
         {
+            CacheMake();
+
             foreach (var analyzer in all)
             {
                 analyzer.SetupDependencies(this, particleLenia);
             }
+        }
+
+        public void AnalyzeAndInitWithLastResult(IParticleLenia particleLenia)
+        {
+            CacheMake();
+
+            foreach (var analyzer in all)
+            {
+                analyzer.SetupDependencies(this, particleLenia);
+                analyzer.Reset();
+            }
+
+            var result = particleLenia.GetLastResult();
+
+            enabledForeachCreated.Loop(result);
+            enabledForeachUpdated.Loop(result);
+            enabledLastAfterStep.Loop(result);
         }
 
         public void AnalyzeAndInit(IParticleLenia particleLenia)
@@ -245,7 +266,6 @@ namespace Assets.ParticleLeniaResarch01.Scripts
 
         private void CacheMake()
         {
-            Debug.Log("CacheMake");
             CacheClear();
 
             enabled = all.Where(e => e.Enabled).ToArray();

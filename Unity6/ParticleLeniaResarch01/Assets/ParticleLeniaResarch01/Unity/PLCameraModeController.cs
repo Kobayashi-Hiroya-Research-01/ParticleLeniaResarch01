@@ -31,6 +31,9 @@ public class PLCameraModeController : MonoBehaviour
 
     public void CameraUpdate(Camera camera, MinMaxAnalyzer minMaxAnalyzer)
     {
+        if (minMaxAnalyzer.XMinMax.Range < 0) return;
+        if (minMaxAnalyzer.YMinMax.Range < 0) return;
+
         if (defaultOffset == null) defaultOffset = camera.transform.position;
 
         if (chaseCenter && minMaxAnalyzer != null)

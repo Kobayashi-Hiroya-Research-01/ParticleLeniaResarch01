@@ -1,10 +1,7 @@
-using Assets.Packages.viceroypenguin.Dbscan.Custom;
-using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Analyzers;
 using Assets.ParticleLeniaResarch01.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 public class PLParticleController : MonoBehaviour
@@ -19,7 +16,6 @@ public class PLParticleController : MonoBehaviour
     public float g;
     public float r;
 
-    private ParticleLeniaAnalyzer analyzer;
     private Material material;
     private ParticleInfo particleInfo;
     private PLViewModeController viewModeController;
@@ -37,16 +33,10 @@ public class PLParticleController : MonoBehaviour
         Destroy(material);
     }
 
-    public void InfoUpdate(ParticleInfo particleInfo)
-    {
-        this.particleInfo = particleInfo;
-    }
-
     public void InitPostAction(ParticleInfo particleInfo, PLViewModeController viewModeController, ParticleLeniaAnalyzer analyzer, int particleIndex)
     {
         this.particleInfo = particleInfo;
         this.viewModeController = viewModeController;
-        this.analyzer = analyzer;
         this.particleIndex = particleIndex;
         pLMinMax = analyzer.Search<MinMaxAnalyzer>();
         heatMapU.Setup(particleInfo, viewModeController);

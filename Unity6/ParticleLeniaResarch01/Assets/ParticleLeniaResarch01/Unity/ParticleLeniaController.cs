@@ -5,6 +5,7 @@ using Assets.ParticleLeniaResarch01.Scripts.Data;
 using Assets.ParticleLeniaResarch01.Scripts.Initializers;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class ParticleLeniaController : MonoBehaviour
@@ -58,7 +59,7 @@ public class ParticleLeniaController : MonoBehaviour
             particles.Add(p);
         }
 
-        private void ClusterTrackingDbscan_OnClustered(ClusterTrackingDbscanAnalyzer.Point point, ClusterTrackingCluster<ClusterTrackingDbscanAnalyzer.Point> cluster, string clusteringName)
+        private void ClusterTrackingDbscan_OnClustered(ClusterTrackingPoint point, ClusterTrackingCluster<ClusterTrackingPoint> cluster, string clusteringName)
         {
             particles[point.Index].clusterInfo.SetCluster(clusteringName, cluster);
         }
@@ -74,6 +75,21 @@ public class ParticleLeniaController : MonoBehaviour
         public int stepParFrame = 1;
     }
 
+    [Serializable]
+    public class DebugInfo
+    {
+        [Serializable]
+        public class AutopoieticPotentialItem
+        {
+            public int clusterID = -1;
+            public double autopoieticPotential;
+        }
+
+        public AutopoieticPotentialItem[] autopoieticPotentials = new AutopoieticPotentialItem[0];
+    }
+
+    public DebugInfo debugInfo;
+    public bool calcAutopoieticSystemPotential;
     public PLViewModeController viewModeController;
     public PLCameraController cameraController;
     public UtHistController utHistController;
@@ -83,10 +99,12 @@ public class ParticleLeniaController : MonoBehaviour
     public OriginalInitializer.State simulationOptions;
 
     private ParticlesAnalyzer particlesAnalyzer;
-
     private ParticleLeniaSimulation simulation;
-
     private ParticleLeniaAnalyzer analyzer;
+    private AutopoieticSystemPotential autopoieticSystemPotential;
+    private AutopoieticSystemPotentialArg autopoieticSystemPotentialArg;
+    private readonly int autopoieticSystemPotentialFreq = 1;
+    private int autopoieticSystemPotentialFreqIndex = 0;
 
     private void Awake()
     {
@@ -109,6 +127,8 @@ public class ParticleLeniaController : MonoBehaviour
         {
             analyzerList = FindFirstObjectByType<PLAnalyzerListController>();
         }
+
+        autopoieticSystemPotential ??= new AutopoieticSystemPotential();
     }
 
     private void OnEnable()
@@ -161,12 +181,53 @@ public class ParticleLeniaController : MonoBehaviour
             simulationOptions.seed += playerOptions.seedIncrement;
             analyzer.AnalyzeAndInit(simulation);
             cameraController.UpdateCamera(analyzer);
+            autopoieticSystemPotentialFreqIndex = 0;
         }
 
         if (playerOptions.isPlay || Input.GetKeyUp(KeyCode.N))
         {
             analyzer.AnalyzeAndNext(simulation, playerOptions.stepParFrame);
-            cameraController.UpdateCamera(analyzer);
+            CalcAutopoieticSystemPotential();
+        }
+
+        cameraController.UpdateCamera(analyzer);
+    }
+
+    private void CalcAutopoieticSystemPotential()
+    {
+        if (!calcAutopoieticSystemPotential) return;
+
+        if (autopoieticSystemPotentialFreqIndex == 0)
+        {
+            if (autopoieticSystemPotentialArg == null)
+            {
+                var clusterTrackingDbscanAnalyzers = analyzer.SearchAll<ClusterTrackingDbscanAnalyzer>();
+                autopoieticSystemPotentialArg = new()
+                {
+                    baseUnitAnalyzer = clusterTrackingDbscanAnalyzers.First(e => e.ClusteringName == "Unit"),
+                    baseComponentAnalyzer = clusterTrackingDbscanAnalyzers.First(e => e.ClusteringName == "Component"),
+                };
+            }
+
+            autopoieticSystemPotentialArg.baseSimulation = simulation;
+            autopoieticSystemPotentialArg.step = 0;
+
+            var results = autopoieticSystemPotential.CheckPotential(autopoieticSystemPotentialArg);
+
+            debugInfo ??= new();
+            debugInfo.autopoieticPotentials = results
+                .Select(e => new DebugInfo.AutopoieticPotentialItem() { clusterID = e.Key, autopoieticPotential = e.Value })
+                .OrderBy(e => e.clusterID)
+                .ToArray();
+        }
+
+        if (autopoieticSystemPotentialFreqIndex >= autopoieticSystemPotentialFreq - 1)
+        {
+            autopoieticSystemPotentialFreqIndex = 0;
+        }
+        else
+        {
+            autopoieticSystemPotentialFreqIndex++;
         }
     }
 

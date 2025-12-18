@@ -1,12 +1,10 @@
 using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Analyzers;
-using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.SubsystemsImplementation;
 
 public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrackingDbscanAnalyzer.IOption
 {
@@ -51,6 +49,7 @@ public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrack
         public ClusterTrackingMode TrackingMode { get => trackingMode; set => trackingMode = value; }
         public int StartIndex { get => startIndex; set => startIndex = value; }
         public double ContinuousRatio { get => continuousRatio; set => continuousRatio = value; }
+        public int LastID { get; set; } = -1;
     }
 
     [Serializable]
@@ -104,7 +103,7 @@ public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrack
 
         public Item[] clusterInfoList;
 
-        public void Update(Span<ClusterTrackingCluster<ClusterTrackingDbscanAnalyzer.Point>> clusters)
+        public void Update(Span<ClusterTrackingCluster<ClusterTrackingPoint>> clusters)
         {
             var items = new List<Item>(clusters.Length);
             count = clusters.Length;
@@ -186,7 +185,23 @@ public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrack
         set => clusteringName = value;
     }
 
-    public ClusterTrackingDbscanAnalyzer ClusterTrackingDbscanAnalyzer => analyzer ??= new ClusterTrackingDbscanAnalyzer(this);
+    public ClusterTrackingDbscanAnalyzer.IOption AsOption => this;
+
+    public ClusterTrackingDbscanAnalyzer ClusterTrackingDbscanAnalyzer
+    {
+        get
+        {
+            if (analyzer == null)
+            {
+                analyzer = new ClusterTrackingDbscanAnalyzer();
+
+                AsOption.CopyTo(analyzer);
+            }
+
+            return analyzer;
+        }
+    }
+
     public override IParticleLeniaAnalyzer Analyzer => ClusterTrackingDbscanAnalyzer;
 
     public void Update()

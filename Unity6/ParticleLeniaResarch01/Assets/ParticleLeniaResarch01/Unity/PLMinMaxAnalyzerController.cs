@@ -1,6 +1,6 @@
 using Assets.ParticleLeniaResarch01.Analyzers;
-using MathObjects = Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
+using MathObjects = Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 
 public class PLMinMaxAnalyzerController : PLAnalyzerController
 {

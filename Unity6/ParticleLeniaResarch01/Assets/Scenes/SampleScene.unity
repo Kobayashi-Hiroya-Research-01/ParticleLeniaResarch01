@@ -148,15 +148,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ac0adf059e6d2c4683e02b4c5690120, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  debugInfo:
+    autopoieticPotentials: []
+  calcAutopoieticSystemPotential: 0
   viewModeController: {fileID: 0}
   cameraController: {fileID: 0}
   utHistController: {fileID: 0}
   analyzerList: {fileID: 0}
   particlePrefab: {fileID: 2253794128707804095, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
   playerOptions:
-    isPlay: 1
+    isPlay: 0
     seedIncrement: 0
-    stepParFrame: 10
+    stepParFrame: 1
   simulationOptions:
     fields:
       kernelGauss:
@@ -3554,7 +3557,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PLClusteringAnalyzerController
   debugInfo:
-    orderBy: 0
+    orderBy: 2
     count: 0
     clusterSizeAverage: 0
     lifeTimeAverage: 0
@@ -4849,7 +4852,7 @@ MonoBehaviour:
       minimumPointsPerCluster: 2
     trackingMode: 1
     continuousRatio: 0.49000000953674316
-    startIndex: 500
+    startIndex: 0
   pointSettingsOption:
     <PointMode>k__BackingField: 1
     <EWeight>k__BackingField: 1
@@ -18284,7 +18287,7 @@ MonoBehaviour:
   particleLeniaAnalyzers:
   - {fileID: 1735928113}
   - {fileID: 351010618}
-  - {fileID: 520690512}
+  - {fileID: 0}
 --- !u!1 &1959400404
 GameObject:
   m_ObjectHideFlags: 0

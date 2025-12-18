@@ -1,73 +1,51 @@
-﻿using Assets.Packages.viceroypenguin.Dbscan.Custom;
-using Assets.ParticleLeniaResarch01.Analysis;
+﻿using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System;
+using UnityEngine;
 
 namespace Assets.ParticleLeniaResarch01.Analyzers
 {
+    using Cluster = ClusterTrackingCluster<ClusterTrackingPoint>;
+    using Point = ClusterTrackingPoint;
     using PointMode = ClusterTrackingDbscanAnalyzerPointMode;
     using PointSettingData = ClusterTrackingDbscanAnalyzerPointSettingData;
 
-    public class ClusterTrackingDbscanAnalyzer : IParticleLeniaAnalyzer, ClusterTrackingDbscanAnalyzer.IOption
+    public class ClusterTrackingDbscanAnalyzer : IParticleLeniaAnalyzer, ClusterTrackingDbscanAnalyzer.IState
     {
         public interface IOption
         {
-            ClusterTrackingDbscan.IOption ClusterTrackingOption { get; set; }
-
-            PointSettingData.IOption PointSettingsOption { get; set; }
-
             string ClusteringName { get; set; }
 
-            Dbscan.IOption DbscanOption
-            {
-                get => ClusterTrackingOption.DbscanOption;
-                set => value.CopyTo(ClusterTrackingOption.DbscanOption);
-            }
+            ClusterTrackingDbscan.IOption ClusterTrackingOption { get; }
+
+            PointSettingData.IOption PointSettingsOption { get; }
 
             void CopyTo(IOption other)
             {
                 ClusterTrackingOption.CopyTo(other.ClusterTrackingOption);
-                other.PointSettingsOption = PointSettingsOption;
+                PointSettingsOption.CopyTo(other.PointSettingsOption);
                 other.ClusteringName = ClusteringName;
             }
         }
 
-        public delegate Span<double> GetPoint(ParticleInfo particleInfo, Span<double> point);
-
-        public delegate void OnClusteredEvent(Point point, ClusterTrackingCluster<Point> cluster, string clusteringName);
-
-        public class Point : IClusterTrackingPointData
+        public interface IState : IOption
         {
-            private readonly GetPoint getPoint;
-            private readonly double[] point;
+            ClusterTrackingDbscan.IState ClusterTrackingState { get; }
 
-            public Point(ParticleInfo particleInfo, int index, ClusterTrackingDbscanAnalyzer analyzer)
+            void CopyTo(IState other)
             {
-                ParticleInfo = particleInfo;
-                Index = index;
-                this.getPoint = analyzer.getPoint;
-                point = new double[particleInfo.position.Length + 2];
+                AsOption.CopyTo(other);
+                ClusterTrackingState.CopyTo(other.ClusterTrackingState);
             }
 
-            public ClusterID ClusterID { get; set; } = ClusterID.UnclusteredID;
-
-            public int Index { get; }
-
-            public ParticleInfo ParticleInfo { get; }
-
-            ReadOnlySpan<double> IPointData.Point
-            {
-                get
-                {
-                    getPoint(ParticleInfo, point);
-                    return point;
-                }
-            }
+            IOption AsOption => this;
         }
 
+        public delegate void OnClusteredEvent(Point point, Cluster cluster, string clusteringName);
+
         private MinMaxAnalyzer minMaxAnalyzer;
-        private GetPoint getPoint;
+        private Point.GetPoint getPoint;
 
         private double utNormalizedWeight;
         private double rtNormalizedWeight;
@@ -77,23 +55,20 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
 
         public string ClusteringName { get; set; } = "New Clustering";
 
-        public ClusterTrackingDbscan<Point> ClusterTrackingDbscan { get; private set; }
-
-        public ClusterTrackingDbscan.IOption ClusterTrackingOption
-        {
-            get => ClusterTrackingDbscan;
-            set => value.CopyTo(ClusterTrackingDbscan);
-        }
+        public ClusterTrackingDbscan ClusterTrackingDbscan { get; private set; }
 
         public PointSettingData PointSettings { get; }
 
-        public PointSettingData.IOption PointSettingsOption
-        {
-            get => PointSettings;
-            set => value.CopyTo(PointSettings);
-        }
-
         public bool Enabled { get; set; } = true;
+
+        public ClusterTrackingDbscan.IOption ClusterTrackingOption => ClusterTrackingDbscan;
+
+        public PointSettingData.IOption PointSettingsOption => PointSettings;
+
+        public ClusterTrackingDbscan.IState ClusterTrackingState => ClusterTrackingDbscan;
+
+        public IOption AsOption => this;
+        public IState AsState => this;
 
         public event OnClusteredEvent OnClustered;
 
@@ -104,23 +79,19 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
                 new(timing: ParticleLeniaAnalyzerTiming.ForeachCreated, @foreach: ForeachCreated),
                 new(timing: ParticleLeniaAnalyzerTiming.ForeachUpdated, loopEnd: AllUpdated),
             };
+
             ClusterTrackingDbscan = new();
             PointSettings = new();
-        }
-
-        public ClusterTrackingDbscanAnalyzer(IOption option) : this()
-        {
-            option.CopyTo(this);
         }
 
         public void Reset()
         {
             OnClustered = null;
             ClusterTrackingDbscan.Reset();
-            UpdatePointSettings();
+            UpdateGetPoint();
         }
 
-        public void UpdatePointSettings()
+        private void UpdateGetPoint()
         {
             var settings = PointSettings;
             getPoint = settings.PointMode switch
@@ -192,12 +163,22 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
 
         public void ForeachCreated(ParticleInfo info, int index)
         {
-            ClusterTrackingDbscan.AddPoint(new Point(info, index, this));
+            ClusterTrackingDbscan.AddPoint(new Point(info, index, getPoint));
         }
+
+        private const int _D_Start = 1;
+        private const int _D_End = 20 * 60 * 5;
+        private readonly DebugTextWriter _D_ParticleInfoArray = new("ParticleInfoArray", killed: true);
+        private readonly DebugTextWriter _D_NormalizedWeight = new("NormalizedWeight", killed: true);
 
         public void AllUpdated(ParticleInfoArray particles)
         {
+            _D_ParticleInfoArray.AppendWithLog(() => string.Join(", ", particles), _D_Start, _D_End);
+
             UpdateNormalizedWeight();
+
+            _D_NormalizedWeight.AppendWithLog(() => $"{{ utw = {utNormalizedWeight}, rtw = {rtNormalizedWeight},  ew = {eNormalizedWeight}}}", _D_Start, _D_End);
+
             var set = ClusterTrackingDbscan.CalculateClusters();
             foreach (var cluster in set.Values)
             {
@@ -211,11 +192,6 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
             {
                 OnClustered?.Invoke(point, set.UnclusteredObjects, ClusteringName);
             }
-        }
-
-        private void OnClusteredWithMyName(Point point, ClusterTrackingCluster<Point> cluster)
-        {
-            OnClustered?.Invoke(point, cluster, ClusteringName);
         }
 
         private static readonly double sqrt2 = Math.Sqrt(2.0);
