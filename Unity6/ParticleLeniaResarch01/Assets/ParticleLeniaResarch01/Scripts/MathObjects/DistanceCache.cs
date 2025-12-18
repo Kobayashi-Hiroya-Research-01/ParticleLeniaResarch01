@@ -1,16 +1,12 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine.UIElements;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
 {
     public struct DistanceCache
     {
         private double[] distances;
-        public readonly bool IsNull => distances == null;
 
-        public readonly int Length => distances.Length;
+        public readonly int Length => distances == null ? 0 : distances.Length;
 
         public readonly ReadOnlySpan<double> Distances => distances;
 
@@ -21,7 +17,10 @@ namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
                 if (indexA == indexB) return 0.0;
 
                 ref var value = ref distances.CombinationElement(indexA, indexB);
-                if (value < 0) value = Distance(posA, posB);
+                if (value < 0)
+                {
+                    value = Distance(posA, posB);
+                }
 
                 return value;
             }

@@ -1,7 +1,5 @@
 using Assets.ParticleLeniaResarch01.Analyzers;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
-using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
-using static Unity.VisualScripting.Member;
 
 namespace Assets.ParticleLeniaResarch01.Scripts
 {

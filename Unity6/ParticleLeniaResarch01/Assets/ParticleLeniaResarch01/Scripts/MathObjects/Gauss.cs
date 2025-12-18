@@ -46,7 +46,12 @@ namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
 
         public override string ToString()
         {
-            return base.ToString();
+            return $"{{ mu = {Format(mu)}, sigma = {Format(sigma)} }}";
+        }
+
+        private static string Format(double value)
+        {
+            return $"{value,8:F5}";
         }
     }
 }

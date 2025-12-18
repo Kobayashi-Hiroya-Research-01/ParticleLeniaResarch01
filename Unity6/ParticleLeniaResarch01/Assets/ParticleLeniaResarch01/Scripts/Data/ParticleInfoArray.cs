@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Assets.ParticleLeniaResarch01.Scripts.Data
@@ -6,44 +8,12 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
     /// <summary>
     /// åªç›ÇÃó±éqèÛë‘
     /// </summary>
-    public class ParticleInfoArray
+    public class ParticleInfoArray : IEnumerable<ParticleInfo>
     {
-        [Serializable]
-        public struct Record
-        {
-            public double time;
-            public int frame;
-            public double totalE;
-            public ParticleInfo.Record[] particles;
-
-            public Record(ParticleInfo.Record[] particles, double time, int frame)
-            {
-                this.time = time;
-                this.frame = frame;
-                totalE = particles.Sum(e => e.E);
-                this.particles = particles;
-            }
-
-            public readonly ParticleInfoArray ToRaw(IParticleFieldsSerializer serializer)
-            {
-                var array = particles.Select(e => e.ToRaw(serializer)).ToArray();
-                return new ParticleInfoArray(array, time, frame);
-            }
-        }
-
         /// <summary>
         /// ëSó±éqÇÃèÛë‘
         /// </summary>
-        private readonly ParticleInfo[] array;
-
-        public Span<ParticleInfo> Array => array;
-
-        public double TotalE => array.Sum(e => e.LastE);
-
-        public double Time { get; set; }
-        public int Step { get; set; }
-
-        public ref ParticleInfo this[int index] => ref array[index];
+        private ParticleInfo[] array;
 
         public ParticleInfoArray(ParticleInfo[] array, double time, int step)
         {
@@ -56,25 +26,58 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
         {
         }
 
-        public ParticleInfoArray Clone()
-        {
-            var length = array.Length;
-            var clone = new ParticleInfoArray(length, Time, Step);
+        public Span<ParticleInfo> Array => array;
 
-            for (int i = 0; i < length; i++)
+        public double TotalE => array.Sum(e => e.LastE);
+
+        public double Time { get; set; }
+        public int Step { get; set; }
+
+        public ref ParticleInfo this[int index] => ref array.AsSpan()[index];
+
+        public void CopyTo(ParticleInfoArray other)
+        {
+            other.Time = Time;
+            other.Step = Step;
+
+            if (other.array == null || other.array.Length != array.Length)
             {
-                var particle = this[i];
-                var particleClone = new ParticleInfo(particle.fields, particle.position.ToArray(), particle.lastGt, particle.lastRt, particle.lastUt);
-                clone[i] = particleClone;
+                other.array = new ParticleInfo[array.Length];
             }
 
-            return clone;
+            for (int i = 0; i < other.array.Length; i++)
+            {
+                var selfItem = array[i];
+                ref var otherItem = ref other.array[i];
+                if (otherItem == null)
+                {
+                    otherItem = new ParticleInfo(selfItem.fields, selfItem.position.ToArray(), selfItem.lastGt, selfItem.lastRt, selfItem.lastUt);
+                }
+                else
+                {
+                    selfItem.CopyTo(otherItem);
+                }
+            }
         }
 
-        public Record ToRecord(IParticleFieldsSerializer serializer)
+        public void RemoveAll(IEnumerable<ParticleInfo> particles)
         {
-            var array = this.array.Select(e => e.ToRecord(serializer)).ToArray();
-            return new Record(array, Time, Step);
+            var list = array.ToList();
+            foreach (var p in particles)
+            {
+                list.Remove(p);
+            }
+            array = list.ToArray();
+        }
+
+        public IEnumerator<ParticleInfo> GetEnumerator()
+        {
+            return ((IEnumerable<ParticleInfo>)array).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return array.GetEnumerator();
         }
     }
 }

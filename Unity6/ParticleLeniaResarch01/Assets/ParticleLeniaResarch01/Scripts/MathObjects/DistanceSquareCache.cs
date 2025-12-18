@@ -16,6 +16,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts.MathObjects
             get
             {
                 if (indexA == indexB) return 0.0;
+
                 ref var value = ref distances.CombinationElement(indexA, indexB);
                 if (value < 0) value = DistanceSquare(posA, posB);
                 return value;
