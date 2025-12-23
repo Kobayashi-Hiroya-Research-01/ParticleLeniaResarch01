@@ -19,7 +19,7 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
         {
             elements = new ParticleLeniaAnalyzerElement[]
             {
-                new(timing: ParticleLeniaAnalyzerTiming.ForeachUpdated, loopStart: LoopStart, @foreach: Foreach, loopEnd: LoopEnd),
+                new(timing: ParticleLeniaAnalyzerTiming.ForeachUpdated, loopStart: LoopStart, @foreach: Foreach),
             };
         }
 
@@ -53,8 +53,6 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
 
         public void LoopStart(ParticleInfoArray particles)
         {
-            //Debug.Log("MinMaxAnalyzer.LoopStart");
-
             eMinMax.Reset();
             rtMinMax.Reset();
             gtMinMax.Reset();
@@ -73,9 +71,8 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
             yMinMax.Update(info.position[1]);
         }
 
-        public void LoopEnd(ParticleInfoArray particles)
+        public void RemovePoints(IParticleLenia particleLenia, ReadOnlySpan<int> pointIndexs)
         {
-            //Debug.Log("MinMaxAnalyzer.LoopEnd");
         }
     }
 }

@@ -1,9 +1,11 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -13,6 +15,8 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <typeparam name="T">The type of elements in the cluster.</typeparam>
     public class Cluster<T> : ICluster, IReadOnlyList<T> where T : IPointData
     {
+        private List<T> objects;
+
         public ClusterID ClusterID { get; private set; }
 
         /// <summary>
@@ -26,22 +30,24 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public void Init(ClusterID clusterID, List<T> objects)
         {
+            this.objects = objects;
             ClusterID = clusterID;
             Objects = objects.AsReadOnly();
         }
 
-        public virtual void CopyTo(Cluster<T> other)
+        public void RemoveAll(ReadOnlySpan<int> pointIndexs)
         {
-            if (other.ClusterID == null)
+            for (int i = objects.Count - 1; i >= 0; i--)
             {
-                other.ClusterID = new ClusterID(ClusterID.Value);
+                var point = objects[i];
+                foreach (var index in pointIndexs)
+                {
+                    if (point.Index == index)
+                    {
+                        objects.RemoveAt(i);
+                    }
+                }
             }
-            else
-            {
-                other.ClusterID.UpdateValue(ClusterID.Value);
-            }
-
-            other.Objects = new(Objects);
         }
 
         public IEnumerator<T> GetEnumerator()
@@ -56,7 +62,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public override string ToString()
         {
-            return $"Cluster {{ID = {ClusterID}, Count = {Count}}}";
+            return $"{{ID = {ClusterID}, Count = {Count}}}";
         }
     }
 }

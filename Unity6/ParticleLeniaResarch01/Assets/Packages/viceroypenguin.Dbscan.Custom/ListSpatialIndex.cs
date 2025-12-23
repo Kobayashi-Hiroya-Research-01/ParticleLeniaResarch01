@@ -37,9 +37,17 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public PointInfo<T> this[int index] => array[index];
 
-        public void Add(PointInfo<T> item)
+        public void Add(T item)
         {
-            pointInfos.Add(item);
+            pointInfos.Add(new PointInfo<T>(item));
+        }
+
+        public void AddRange(List<T> points)
+        {
+            foreach (var point in points)
+            {
+                Add(point);
+            }
         }
 
         public void Clear()
@@ -94,18 +102,6 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         public ReadOnlySpan<PointInfo<T>> Search(in T p)
         {
             return array[p.Index].NearArray;
-        }
-
-        public void CopyTo(ListSpatialIndex<T> other)
-        {
-            other.pointInfos.Clear();
-            foreach (var point in array)
-            {
-                var copied = new PointInfo<T>(point.Item);
-                point.CopyTo(copied);
-                other.Add(copied);
-            }
-            other.Reset(epsilon);
         }
     }
 }

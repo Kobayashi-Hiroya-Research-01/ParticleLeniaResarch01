@@ -37,12 +37,6 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// </summary>
         public bool Visited { get; set; }
 
-        public void CopyTo(PointInfo<T> other)
-        {
-            other.Clustered = Clustered;
-            other.Visited = Visited;
-        }
-
         private readonly List<PointInfo<T>> near = new();
 
         public void AddNear(PointInfo<T> item)

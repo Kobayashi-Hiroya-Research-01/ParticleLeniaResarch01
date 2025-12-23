@@ -1,5 +1,6 @@
 using Assets.ParticleLeniaResarch01.Analyzers;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
+using System;
 
 namespace Assets.ParticleLeniaResarch01.Scripts
 {
@@ -38,6 +39,12 @@ namespace Assets.ParticleLeniaResarch01.Scripts
         /// ステップの更新
         /// </summary>
         ParticleInfoArray Next(ParticleLeniaAnalyzerForeachEvent forEachUpdatedParticle);
+
+        /// <summary>
+        /// 粒子の削除
+        /// </summary>
+        /// <param name="pointIndexs"></param>
+        void RemovePoints(ReadOnlySpan<int> pointIndexs);
 
         /// <summary>
         /// 現在の粒子状態

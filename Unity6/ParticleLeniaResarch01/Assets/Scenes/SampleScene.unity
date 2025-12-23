@@ -149,6 +149,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   debugInfo:
+    currentStep: 0
+    currentTime: 0
     autopoieticPotentials: []
   calcAutopoieticSystemPotential: 0
   viewModeController: {fileID: 0}
@@ -157,9 +159,13 @@ MonoBehaviour:
   analyzerList: {fileID: 0}
   particlePrefab: {fileID: 2253794128707804095, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
   playerOptions:
-    isPlay: 0
+    isPlay: 1
     seedIncrement: 0
-    stepParFrame: 1
+    stepParFrame: 10
+    autoStop: 35000
+  autopoieticPotentialOptions:
+    analyzeFrequency: 90
+    deltaFrame: 60
   simulationOptions:
     fields:
       kernelGauss:
@@ -3557,7 +3563,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PLClusteringAnalyzerController
   debugInfo:
-    orderBy: 2
+    orderBy: 0
     count: 0
     clusterSizeAverage: 0
     lifeTimeAverage: 0
@@ -3565,10 +3571,10 @@ MonoBehaviour:
   clusteringName: Component
   clusterTrackingOption:
     dbscanOption:
-      epsilon: 2
+      epsilon: 1.5
       minimumPointsPerCluster: 2
-    trackingMode: 1
-    continuousRatio: 0.49000000953674316
+    trackingMode: 3
+    continuousRatio: 0.4000000059604645
     startIndex: 0
   pointSettingsOption:
     <PointMode>k__BackingField: 1
@@ -4848,10 +4854,10 @@ MonoBehaviour:
   clusteringName: Unit
   clusterTrackingOption:
     dbscanOption:
-      epsilon: 4
+      epsilon: 3
       minimumPointsPerCluster: 2
-    trackingMode: 1
-    continuousRatio: 0.49000000953674316
+    trackingMode: 3
+    continuousRatio: 0.4000000059604645
     startIndex: 0
   pointSettingsOption:
     <PointMode>k__BackingField: 1
@@ -18286,7 +18292,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PLAnalyzerListController
   particleLeniaAnalyzers:
   - {fileID: 1735928113}
-  - {fileID: 351010618}
+  - {fileID: 0}
   - {fileID: 0}
 --- !u!1 &1959400404
 GameObject:

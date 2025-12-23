@@ -5,7 +5,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Unity.VisualScripting;
+using UnityEngine.tvOS;
 using static Assets.ParticleLeniaResarch01.Analyzers.ParticleLeniaAnalyzerTiming;
+using static UnityEngine.InputSystem.HID.HID;
 
 namespace Assets.ParticleLeniaResarch01.Scripts
 {
@@ -201,8 +204,6 @@ namespace Assets.ParticleLeniaResarch01.Scripts
             var result = particleLenia.GetLastResult();
 
             enabledForeachCreated.Loop(result);
-            enabledForeachUpdated.Loop(result);
-            enabledLastAfterStep.Loop(result);
         }
 
         public void AnalyzeAndInit(IParticleLenia particleLenia)
@@ -241,6 +242,16 @@ namespace Assets.ParticleLeniaResarch01.Scripts
 
                 result = UpdateLoop(particleLenia);
                 enabledLastAfterStep.Loop(result);
+            }
+        }
+
+        public void RemovePoints(IParticleLenia particleLenia, ReadOnlySpan<int> pointIndexs)
+        {
+            particleLenia.RemovePoints(pointIndexs);
+
+            foreach (var analyzer in enabled)
+            {
+                analyzer.RemovePoints(particleLenia, pointIndexs);
             }
         }
 

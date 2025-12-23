@@ -1,8 +1,10 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
+using Assets.ParticleLeniaResarch01.Analysis;
 using System;
 using System.Collections.Generic;
+using XCharts.Runtime;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -37,10 +39,10 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         {
             ListSpatialIndex<TPoint> PointInfos { get; }
 
-            void CopyTo(IState other)
+            void Reset(List<TPoint> points)
             {
-                AsOption.CopyTo(other);
-                PointInfos.CopyTo(other.PointInfos);
+                PointInfos.Clear();
+                PointInfos.AddRange(points);
             }
 
             IOption AsOption => this;
@@ -61,7 +63,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public void AddPoint(TPoint data)
         {
-            pointInfos.Add(new PointInfo<TPoint>(data));
+            pointInfos.Add(data);
         }
 
         public void Reset()

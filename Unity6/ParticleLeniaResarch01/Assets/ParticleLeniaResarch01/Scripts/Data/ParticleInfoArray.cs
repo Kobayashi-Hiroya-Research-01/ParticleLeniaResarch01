@@ -60,14 +60,25 @@ namespace Assets.ParticleLeniaResarch01.Scripts.Data
             }
         }
 
-        public void RemoveAll(IEnumerable<ParticleInfo> particles)
+        public void RemoveAll(ReadOnlySpan<int> particles)
         {
-            var list = array.ToList();
-            foreach (var p in particles)
+            var newArray = new ParticleInfo[array.Length - particles.Length];
+
+            int particlesIndex = 0;
+            int newArrayIndex = 0;
+            for (int i = 0; i < array.Length; i++)
             {
-                list.Remove(p);
+                if (particlesIndex < particles.Length && i == particles[particlesIndex])
+                {
+                    particlesIndex++;
+                }
+                else
+                {
+                    newArray[newArrayIndex++] = array[i];
+                }
             }
-            array = list.ToArray();
+
+            array = newArray[..newArrayIndex];
         }
 
         public IEnumerator<ParticleInfo> GetEnumerator()

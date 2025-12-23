@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static Unity.Profiling.ProfilerMarker;
 
 public class ParticleLeniaController : MonoBehaviour
 {
@@ -63,6 +64,28 @@ public class ParticleLeniaController : MonoBehaviour
         {
             particles[point.Index].clusterInfo.SetCluster(clusteringName, cluster);
         }
+
+        public void RemovePoints(IParticleLenia particleLenia, ReadOnlySpan<int> pointIndexs)
+        {
+            for (int i = particles.Count - 1; i >= 0; i--)
+            {
+                var p = particles[i];
+                foreach (var index in pointIndexs)
+                {
+                    if (p.particleIndex == index)
+                    {
+                        particles.RemoveAt(i);
+                        Destroy(p.gameObject);
+                    }
+                }
+            }
+
+            for (int i = 0; i < particles.Count; i++)
+            {
+                var p = particles[i];
+                p.particleIndex = i;
+            }
+        }
     }
 
     [Serializable]
@@ -73,6 +96,18 @@ public class ParticleLeniaController : MonoBehaviour
 
         [Min(1)]
         public int stepParFrame = 1;
+
+        public int autoStop = -1;
+    }
+
+    [Serializable]
+    public class AutopoieticPotentialOptions
+    {
+        [Min(0)]
+        public int analyzeFrequency = 120;
+
+        [Min(1)]
+        public int deltaFrame = 60;
     }
 
     [Serializable]
@@ -85,6 +120,9 @@ public class ParticleLeniaController : MonoBehaviour
             public double autopoieticPotential;
         }
 
+        public int currentStep;
+        public double currentTime;
+
         public AutopoieticPotentialItem[] autopoieticPotentials = new AutopoieticPotentialItem[0];
     }
 
@@ -96,6 +134,7 @@ public class ParticleLeniaController : MonoBehaviour
     public PLAnalyzerListController analyzerList;
     public GameObject particlePrefab;
     public PlayerOptions playerOptions;
+    public AutopoieticPotentialOptions autopoieticPotentialOptions;
     public OriginalInitializer.State simulationOptions;
 
     private ParticlesAnalyzer particlesAnalyzer;
@@ -103,7 +142,6 @@ public class ParticleLeniaController : MonoBehaviour
     private ParticleLeniaAnalyzer analyzer;
     private AutopoieticSystemPotential autopoieticSystemPotential;
     private AutopoieticSystemPotentialArg autopoieticSystemPotentialArg;
-    private readonly int autopoieticSystemPotentialFreq = 1;
     private int autopoieticSystemPotentialFreqIndex = 0;
 
     private void Awake()
@@ -190,6 +228,27 @@ public class ParticleLeniaController : MonoBehaviour
             CalcAutopoieticSystemPotential();
         }
 
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            analyzer.AnalyzeAndNext(simulation, 0);
+        }
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            Span<int> removes = stackalloc int[90];
+            for (int i = 0; i < removes.Length; i++) removes[i] = i;
+            analyzer.RemovePoints(simulation, removes);
+        }
+        var result = simulation.GetLastResult();
+
+        if (playerOptions.autoStop > 0 && result.Step >= playerOptions.autoStop)
+        {
+            playerOptions.isPlay = false;
+        }
+
+        debugInfo.currentStep = result.Step;
+        debugInfo.currentTime = result.Time;
+
         cameraController.UpdateCamera(analyzer);
     }
 
@@ -210,7 +269,7 @@ public class ParticleLeniaController : MonoBehaviour
             }
 
             autopoieticSystemPotentialArg.baseSimulation = simulation;
-            autopoieticSystemPotentialArg.step = 0;
+            autopoieticSystemPotentialArg.step = autopoieticPotentialOptions.deltaFrame;
 
             var results = autopoieticSystemPotential.CheckPotential(autopoieticSystemPotentialArg);
 
@@ -221,7 +280,7 @@ public class ParticleLeniaController : MonoBehaviour
                 .ToArray();
         }
 
-        if (autopoieticSystemPotentialFreqIndex >= autopoieticSystemPotentialFreq - 1)
+        if (autopoieticSystemPotentialFreqIndex >= autopoieticPotentialOptions.analyzeFrequency - 1)
         {
             autopoieticSystemPotentialFreqIndex = 0;
         }

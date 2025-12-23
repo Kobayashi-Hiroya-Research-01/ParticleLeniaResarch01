@@ -15,7 +15,14 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             Init(clusterID, new());
         }
 
-        public int LifeTime { get; set; } = 0;
-        public Dictionary<int, int> OldIDCount { get; } = new Dictionary<int, int>();
+        public int LifeTime { get; private set; } = 0;
+
+        public Dictionary<int, int> OldIDCount { get; private set; } = new Dictionary<int, int>();
+
+        public void UpdateClusterInfo(int newIDValue, int lifeTime)
+        {
+            LifeTime = lifeTime;
+            ClusterID.UpdateValue(newIDValue);
+        }
     }
 }

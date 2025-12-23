@@ -1,6 +1,7 @@
 ﻿using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
+using NUnit.Framework.Internal;
 using System;
 using UnityEngine;
 
@@ -32,12 +33,7 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
         public interface IState : IOption
         {
             ClusterTrackingDbscan.IState ClusterTrackingState { get; }
-
-            void CopyTo(IState other)
-            {
-                AsOption.CopyTo(other);
-                ClusterTrackingState.CopyTo(other.ClusterTrackingState);
-            }
+            Point.GetPoint GetPoint { get; }
 
             IOption AsOption => this;
         }
@@ -72,6 +68,8 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
 
         public event OnClusteredEvent OnClustered;
 
+        public Point.GetPoint GetPoint => getPoint;
+
         public ClusterTrackingDbscanAnalyzer()
         {
             elements = new ParticleLeniaAnalyzerElement[]
@@ -82,6 +80,16 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
 
             ClusterTrackingDbscan = new();
             PointSettings = new();
+        }
+
+        public void CopyIDTo(ClusterTrackingDbscanAnalyzer other)
+        {
+            ClusterTrackingDbscan.CopyIDTo(other.ClusterTrackingDbscan);
+        }
+
+        public void RemovePoints(IParticleLenia particleLenia, ReadOnlySpan<int> pointIndexs)
+        {
+            ClusterTrackingDbscan.RemovePoints(pointIndexs);
         }
 
         public void Reset()
@@ -166,18 +174,10 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
             ClusterTrackingDbscan.AddPoint(new Point(info, index, getPoint));
         }
 
-        private const int _D_Start = 1;
-        private const int _D_End = 20 * 60 * 5;
-        private readonly DebugTextWriter _D_ParticleInfoArray = new("ParticleInfoArray", killed: true);
-        private readonly DebugTextWriter _D_NormalizedWeight = new("NormalizedWeight", killed: true);
-
         public void AllUpdated(ParticleInfoArray particles)
         {
-            _D_ParticleInfoArray.AppendWithLog(() => string.Join(", ", particles), _D_Start, _D_End);
-
             UpdateNormalizedWeight();
-
-            _D_NormalizedWeight.AppendWithLog(() => $"{{ utw = {utNormalizedWeight}, rtw = {rtNormalizedWeight},  ew = {eNormalizedWeight}}}", _D_Start, _D_End);
+            DebugLog(particles);
 
             var set = ClusterTrackingDbscan.CalculateClusters();
             foreach (var cluster in set.Values)
@@ -192,6 +192,17 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
             {
                 OnClustered?.Invoke(point, set.UnclusteredObjects, ClusteringName);
             }
+        }
+
+        private readonly DebugTextWriter _D_ParticleInfoArray = new("ParticleInfoArray", killed: true);
+        private readonly DebugTextWriter _D_NormalizedWeight = new("NormalizedWeight", killed: true);
+
+        private void DebugLog(ParticleInfoArray particles)
+        {
+            const int _D_Start = 1;
+            const int _D_End = 20 * 60 * 5;
+            _D_ParticleInfoArray.AppendWithLog(() => string.Join(", ", particles), _D_Start, _D_End);
+            _D_NormalizedWeight.AppendWithLog(() => $"{{ utw = {utNormalizedWeight}, rtw = {rtNormalizedWeight},  ew = {eNormalizedWeight}}}", _D_Start, _D_End);
         }
 
         private static readonly double sqrt2 = Math.Sqrt(2.0);

@@ -1,9 +1,12 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
+using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -23,31 +26,35 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         {
             this.clusters = clusters;
-            values ??= clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
+            values = clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
             UnclusteredObjects = unclusteredObjectsCluster;
-        }
-
-        public void CopyTo(ClusterSet<TPoint, TCluster> other)
-        {
-            other.clusters = new Dictionary<int, TCluster>(clusters);
-            other.values = values.ToArray();
         }
 
         /// <summary>
         /// A list of the items that were not identified as being part of a cluster.
         /// </summary>
-        public TCluster UnclusteredObjects { get; }
+        public TCluster UnclusteredObjects { get; private set; }
 
         public Span<TCluster> Values => values ??= clusters.Values.ToArray();
 
         public int Count => clusters.Count;
 
-        public TCluster this[int key] => clusters.GetValueOrDefault(key);
+        public TCluster this[int id] => clusters.GetValueOrDefault(id);
+
+        public TCluster GetAt(int index) => values[index];
 
         public void UpdateIDs()
         {
-            clusters = clusters.Values.ToDictionary(e => e.ClusterID.Value);
-            values = null;
+            try
+            {
+                clusters = clusters.Values.ToDictionary(e => e.ClusterID.Value);
+                values = clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
+            }
+            catch (Exception)
+            {
+                Debug.Log(string.Join(", ", clusters.Values));
+                throw;
+            }
         }
 
         public double SilhouetteCoefficient()
@@ -127,6 +134,29 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         public bool TryGetValue(int key, out TCluster value)
         {
             return clusters.TryGetValue(key, out value);
+        }
+
+        public void Reset(List<TCluster> clusters, TCluster unclusteredObjects)
+        {
+            this.clusters = clusters.ToDictionary(e => e.ClusterID.Value);
+            values = clusters.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
+            UnclusteredObjects = unclusteredObjects;
+        }
+
+        public void RemovePoints(ReadOnlySpan<int> pointIndexs)
+        {
+            for (int i = values.Length - 1; i >= 0; i--)
+            {
+                var cluster = values[i];
+                cluster.RemoveAll(pointIndexs);
+
+                if (cluster.Count == 0)
+                {
+                    clusters.Remove(cluster.ClusterID.Value);
+                }
+            }
+
+            values = clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
         }
     }
 }

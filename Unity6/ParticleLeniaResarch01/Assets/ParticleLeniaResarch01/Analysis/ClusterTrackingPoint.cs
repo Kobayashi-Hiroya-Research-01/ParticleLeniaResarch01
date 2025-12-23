@@ -1,6 +1,7 @@
 ﻿using Assets.Packages.viceroypenguin.Dbscan.Custom;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System;
+using System.Linq;
 
 namespace Assets.ParticleLeniaResarch01.Analysis
 {
@@ -21,9 +22,9 @@ namespace Assets.ParticleLeniaResarch01.Analysis
 
         public ClusterID ClusterID { get; set; } = ClusterID.UnclusteredID;
 
-        public int Index { get; }
+        public int Index { get; private set; }
 
-        public ParticleInfo ParticleInfo { get; }
+        public ParticleInfo ParticleInfo { get; private set; }
 
         ReadOnlySpan<double> IPointData.Point
         {
@@ -32,6 +33,12 @@ namespace Assets.ParticleLeniaResarch01.Analysis
                 getPoint(ParticleInfo, point);
                 return point;
             }
+        }
+
+        public override string ToString()
+        {
+            getPoint(ParticleInfo, point);
+            return $"[{Index}:{string.Join(", ", point)}]";
         }
     }
 }

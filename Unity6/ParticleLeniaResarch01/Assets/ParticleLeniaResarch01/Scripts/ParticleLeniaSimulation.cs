@@ -84,7 +84,7 @@ namespace Assets.ParticleLeniaResarch01.Scripts
                 particles.CopyTo(tempResult);
             }
 
-            public void RemoveAll(IEnumerable<ParticleInfo> particles)
+            public void RemovePoints(ReadOnlySpan<int> particles)
             {
                 tempResult.RemoveAll(particles);
                 lastResult.RemoveAll(particles);
@@ -199,8 +199,6 @@ namespace Assets.ParticleLeniaResarch01.Scripts
                 private int start;
                 private int end;
                 private ParallelStepEvent stepForParticle;
-
-                public Grad Grad => grad;
 
                 public void RunTask(int start, int end, ParallelStepEvent stepForParticle)
                 {
@@ -459,9 +457,10 @@ namespace Assets.ParticleLeniaResarch01.Scripts
 
         int IParticleLenia.CurrentStep => state.CurrentStep;
 
-        public void RemoveAll(IEnumerable<ParticleInfo> particles)
+        public void RemovePoints(ReadOnlySpan<int> particles)
         {
-            results.RemoveAll(particles);
+            Option.ParticleCount -= particles.Length;
+            results.RemovePoints(particles);
         }
 
         public ParticleInfoArray GetLastResult()

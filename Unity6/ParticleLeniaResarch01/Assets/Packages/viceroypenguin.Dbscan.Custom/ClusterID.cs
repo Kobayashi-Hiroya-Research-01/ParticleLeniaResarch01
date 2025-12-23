@@ -17,6 +17,13 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
         public int Value { get; private set; }
 
+        public bool IsUnclusteredID => Value == UnclusteredID.Value;
+
+        public ClusterID Clone()
+        {
+            return new ClusterID(Value);
+        }
+
         public void UpdateValue(int value)
         {
             if (ReferenceEquals(this, UnclusteredID)) throw new NotSupportedException();

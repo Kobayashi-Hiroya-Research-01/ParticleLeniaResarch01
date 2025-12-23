@@ -22,5 +22,7 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
                 element.AppendTo(timing, loopStartList, loopEndList, foreachList);
             }
         }
+
+        void RemovePoints(IParticleLenia particleLenia, ReadOnlySpan<int> pointIndexs);
     }
 }
