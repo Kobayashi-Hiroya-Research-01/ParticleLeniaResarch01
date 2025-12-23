@@ -154,7 +154,7 @@ public class PLClusteringAnalyzerController : PLAnalyzerController, ClusterTrack
     {
         ContinuousRatio = 0.5,
         StartIndex = 0,
-        TrackingMode = ClusterTrackingMode.Continuous_FowlkesMallowsIndex,
+        TrackingMode = ClusterTrackingMode.FowlkesMallowsIndex,
         DbscanOption = new DbscanOptionData()
         {
             Epsilon = 2.0,
