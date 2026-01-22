@@ -5,6 +5,7 @@ using Assets.ParticleLeniaResarch01.Analysis;
 using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
@@ -50,6 +51,21 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             }
         }
 
+        internal void RemovePoints(ReadOnlySpan<int> pointIndexs)
+        {
+            foreach (var index in pointIndexs)
+            {
+                var i = pointInfos.FindIndex(e => e.Item.Index == index);
+                if (i >= 0) pointInfos.RemoveAt(i);
+            }
+
+            for (int i = 0; i < pointInfos.Count; i++)
+            {
+                var p = pointInfos[i];
+                p.Item.IndexReset(i);
+            }
+        }
+
         public void Clear()
         {
             pointInfos.Clear();
@@ -68,7 +84,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 
             Parallel.ForEach(array, SearchNear);
 
-            _D_PointInfos.AppendWithLog(() => string.Join(", ", pointInfos), _D_Start, _D_End);
+            _D_PointInfos.AppendLineWithLog(() => string.Join(", ", pointInfos), _D_Start, _D_End);
         }
 
         private void SearchNear(PointInfo<T> point_i)

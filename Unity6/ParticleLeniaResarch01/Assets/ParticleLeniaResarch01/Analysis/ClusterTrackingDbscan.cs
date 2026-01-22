@@ -438,6 +438,7 @@ namespace Assets.ParticleLeniaResarch01.Analysis
 
         internal void RemovePoints(ReadOnlySpan<int> pointIndexs)
         {
+            Dbscan.RemovePoints(pointIndexs);
             lastResult.RemovePoints(pointIndexs);
         }
     }

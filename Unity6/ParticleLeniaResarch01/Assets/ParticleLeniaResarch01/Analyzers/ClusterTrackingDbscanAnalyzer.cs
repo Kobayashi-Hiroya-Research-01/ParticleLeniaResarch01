@@ -201,8 +201,8 @@ namespace Assets.ParticleLeniaResarch01.Analyzers
         {
             const int _D_Start = 1;
             const int _D_End = 20 * 60 * 5;
-            _D_ParticleInfoArray.AppendWithLog(() => string.Join(", ", particles), _D_Start, _D_End);
-            _D_NormalizedWeight.AppendWithLog(() => $"{{ utw = {utNormalizedWeight}, rtw = {rtNormalizedWeight},  ew = {eNormalizedWeight}}}", _D_Start, _D_End);
+            _D_ParticleInfoArray.AppendLineWithLog(() => string.Join(", ", particles), _D_Start, _D_End);
+            _D_NormalizedWeight.AppendLineWithLog(() => $"{{ utw = {utNormalizedWeight}, rtw = {rtNormalizedWeight},  ew = {eNormalizedWeight}}}", _D_Start, _D_End);
         }
 
         private static readonly double sqrt2 = Math.Sqrt(2.0);

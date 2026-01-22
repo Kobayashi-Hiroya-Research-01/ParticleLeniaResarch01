@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Assets.ParticleLeniaResarch01.Analysis
 {
-    public partial class DebugTextWriter
+    public class DebugTextWriter
     {
         public enum EndCode
         {
@@ -38,7 +38,16 @@ namespace Assets.ParticleLeniaResarch01.Analysis
 
         public int Line { get; private set; }
 
-        public EndCode Append(Func<string> content, int startLine, int endLine)
+        public void Close()
+        {
+            if (writer != null)
+            {
+                writer.Close();
+                Log($"Close Debug Text : {FileInfo.FullName}");
+            }
+        }
+
+        public EndCode AppendLine(Func<string> content, int startLine, int endLine, string lineSeparation = " : ")
         {
             if (killed) return EndCode.NOT_OPEN;
             Line++;
@@ -54,7 +63,7 @@ namespace Assets.ParticleLeniaResarch01.Analysis
 
             if (startLine <= Line && Line <= endLine)
             {
-                var contentText = $"{Line,5} : {content()}\n";
+                var contentText = $"{Line,5}{lineSeparation}{content()}\n";
                 if (writer == null)
                 {
                     File.WriteAllText(FileInfo.FullName, contentText);
@@ -73,6 +82,8 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             else if (Line == endLine)
             {
                 writer.Close();
+                writer = null;
+
                 return EndCode.CLOSE;
             }
             else
@@ -81,57 +92,30 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             }
         }
 
-        public EndCode AppendWithLog(Func<string> content, int startLine, int endLine)
+        public EndCode AppendLineWithLog(Func<string> content, int startLine, int endLine, string lineSeparation = " : ")
         {
             if (killed) return EndCode.NOT_OPEN;
+
+            var result = AppendLine(content, startLine, endLine, lineSeparation);
+            string text = result switch
+            {
+                EndCode.OPEN => $"Open Debug Text  : {FileInfo.FullName}",
+                EndCode.CLOSE => $"Close Debug Text : {FileInfo.FullName}",
+                _ => null,
+            };
+
+            if (text != null) Log(text);
+
+            return result;
+        }
+
+        private void Log(string text)
+        {
 #if UNITY_EDITOR
-            return AppendWithUnityDebug(content, startLine, endLine);
+            Debug.Log(text);
 #else
-            return AppendWithConsole(content, startLine, endLine);
+            Console.WriteLine(text);
 #endif
         }
-
-        public EndCode AppendWithConsole(Func<string> content, int startLine, int endLine)
-        {
-            var result = Append(content, startLine, endLine);
-
-            switch (result)
-            {
-                case EndCode.OPEN:
-                    Console.WriteLine($"Open Debug Text  : {FileInfo.FullName}");
-                    break;
-
-                case EndCode.CLOSE:
-                    Console.WriteLine($"Close Debug Text : {FileInfo.FullName}");
-                    break;
-            }
-
-            return result;
-        }
     }
-
-#if UNITY_EDITOR
-
-    public partial class DebugTextWriter
-    {
-        public EndCode AppendWithUnityDebug(Func<string> content, int startLine, int endLine)
-        {
-            var result = Append(content, startLine, endLine);
-
-            switch (result)
-            {
-                case EndCode.OPEN:
-                    Debug.Log($"Open Debug Text  : {FileInfo.FullName}");
-                    break;
-
-                case EndCode.CLOSE:
-                    Debug.Log($"Close Debug Text : {FileInfo.FullName}");
-                    break;
-            }
-
-            return result;
-        }
-    }
-
-#endif
 }

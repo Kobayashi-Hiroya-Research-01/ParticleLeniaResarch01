@@ -7,7 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using static Unity.Profiling.ProfilerMarker;
+using UnityEngine.UI;
+using UnityEditor.Recorder;
+using UnityEditor;
+using UnityEngine.Profiling;
 
 public class ParticleLeniaController : MonoBehaviour
 {
@@ -92,6 +95,7 @@ public class ParticleLeniaController : MonoBehaviour
     public class PlayerOptions
     {
         public bool isPlay;
+        public bool recording;
         public int seedIncrement = 1;
 
         [Min(1)]
@@ -103,8 +107,15 @@ public class ParticleLeniaController : MonoBehaviour
     [Serializable]
     public class AutopoieticPotentialOptions
     {
+        public bool calcSystemPotential;
+
+        public bool writeLog;
+
         [Min(0)]
         public int analyzeFrequency = 120;
+
+        [Min(-1)]
+        public int analyzeCount = 14 * 4;
 
         [Min(1)]
         public int deltaFrame = 60;
@@ -127,7 +138,7 @@ public class ParticleLeniaController : MonoBehaviour
     }
 
     public DebugInfo debugInfo;
-    public bool calcAutopoieticSystemPotential;
+    public Text infoText;
     public PLViewModeController viewModeController;
     public PLCameraController cameraController;
     public UtHistController utHistController;
@@ -171,6 +182,20 @@ public class ParticleLeniaController : MonoBehaviour
 
     private void OnEnable()
     {
+        var recorder = GetRecorder();
+        if (recorder != null)
+        {
+            if (recorder.IsRecording())
+            {
+                Debug.Log("StartRecording!");
+            }
+            else if (playerOptions.recording)
+            {
+                recorder.StartRecording();
+                Debug.Log("StartRecording!");
+            }
+        }
+
         Awake();
         DestroyParticles();
 
@@ -239,22 +264,46 @@ public class ParticleLeniaController : MonoBehaviour
             for (int i = 0; i < removes.Length; i++) removes[i] = i;
             analyzer.RemovePoints(simulation, removes);
         }
+
         var result = simulation.GetLastResult();
 
-        if (playerOptions.autoStop > 0 && result.Step >= playerOptions.autoStop)
+        if (playerOptions.isPlay && playerOptions.autoStop > 0 && result.Step >= playerOptions.autoStop)
         {
             playerOptions.isPlay = false;
+
+            var recorder = GetRecorder();
+            if (recorder != null && recorder.IsRecording())
+            {
+                recorder.StopRecording();
+                Debug.Log("StopRecording!");
+            }
+
+            _D_AutopoieticPotential.Close();
+            EditorApplication.Beep();
         }
 
         debugInfo.currentStep = result.Step;
         debugInfo.currentTime = result.Time;
 
+        infoText.text =
+            $"seed = {simulationOptions.seed}, step = {result.Step}, time = {result.Time}, AP index = {_D_AutopoieticPotential.Line}\n" +
+            $"{autopoieticPotentialLogText}";
+
         cameraController.UpdateCamera(analyzer);
     }
 
+    private RecorderWindow GetRecorder()
+    {
+        return EditorWindow.GetWindow<RecorderWindow>();
+    }
+
+    private readonly DebugTextWriter _D_AutopoieticPotential = new("AutopoieticPotential");
+
+    private string autopoieticPotentialLogText = "";
+
     private void CalcAutopoieticSystemPotential()
     {
-        if (!calcAutopoieticSystemPotential) return;
+        if (!autopoieticPotentialOptions.calcSystemPotential) return;
 
         if (autopoieticSystemPotentialFreqIndex == 0)
         {
@@ -278,6 +327,25 @@ public class ParticleLeniaController : MonoBehaviour
                 .Select(e => new DebugInfo.AutopoieticPotentialItem() { clusterID = e.Key, autopoieticPotential = e.Value })
                 .OrderBy(e => e.clusterID)
                 .ToArray();
+
+            if (autopoieticPotentialOptions.writeLog && results.Count > 0)
+            {
+                var end = autopoieticPotentialOptions.analyzeCount;
+                if (end < 0) { end = _D_AutopoieticPotential.Line + 2; }
+                _D_AutopoieticPotential.AppendLineWithLog(() =>
+                {
+                    var maxUnit = results.OrderByDescending(e => e.Value).First();
+                    var maxValue = maxUnit.Value;
+                    var sum = results.Sum(e => e.Value);
+                    var ave = results.Average(e => e.Value);
+
+                    return $"{maxValue}, {sum}, {ave}";
+                }, 0, end, ", ");
+            }
+
+            autopoieticPotentialLogText = $"Last Max\t = {results.Max(e => e.Value),1:F4}\n";
+            autopoieticPotentialLogText += $"Last Sum\t = {results.Sum(e => e.Value),1:F4}\n";
+            autopoieticPotentialLogText += $"Last Ave AP\t = {results.Average(e => e.Value),1:F4}\n";
         }
 
         if (autopoieticSystemPotentialFreqIndex >= autopoieticPotentialOptions.analyzeFrequency - 1)
@@ -288,6 +356,11 @@ public class ParticleLeniaController : MonoBehaviour
         {
             autopoieticSystemPotentialFreqIndex++;
         }
+    }
+
+    private void OnApplicationQuit()
+    {
+        _D_AutopoieticPotential.Close();
     }
 
     [SerializeField]

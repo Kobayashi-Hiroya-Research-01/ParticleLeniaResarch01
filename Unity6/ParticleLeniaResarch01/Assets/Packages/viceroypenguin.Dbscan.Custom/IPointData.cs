@@ -16,5 +16,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         ReadOnlySpan<double> Point { get; }
 
         int Index { get; }
+
+        public void IndexReset(int newIndex);
     }
 }

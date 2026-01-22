@@ -35,6 +35,11 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             }
         }
 
+        public void IndexReset(int newIndex)
+        {
+            Index = newIndex;
+        }
+
         public override string ToString()
         {
             getPoint(ParticleInfo, point);

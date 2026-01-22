@@ -181,5 +181,10 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 }
             }
         }
+
+        internal void RemovePoints(ReadOnlySpan<int> pointIndexs)
+        {
+            pointInfos.RemovePoints(pointIndexs);
+        }
     }
 }

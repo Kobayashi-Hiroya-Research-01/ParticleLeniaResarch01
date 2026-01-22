@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -8,7 +9,7 @@ namespace Assets.ParticleLeniaResarch01.Analysis
     public class AutopoieticSystemPotential
     {
         private readonly List<AutopoieticUnitProperty> unitProperties;
-        private readonly Dictionary<int, double> lastResults;
+        private readonly ConcurrentDictionary<int, double> lastResults;
         private AutopoieticSystemPotentialArg lastArg;
 
         public int UnitCount { get; private set; }
@@ -36,14 +37,6 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             lastResults.Clear();
 
             Parallel.For(0, unitCount, UnitPropertyCheck);
-
-            var logText = "Max AutopoieticPotential : ";
-            logText += (lastResults.OrderByDescending(e => e.Value).Select(e => $"[{e.Key}] = {e.Value}").FirstOrDefault() ?? "") + "\n";
-            logText += $"Sum AutopoieticPotential : {lastResults.Sum(e => e.Value)}\n";
-            logText += $"Ave AutopoieticPotential : {lastResults.Average(e => e.Value)}\n";
-
-            Debug.Log(logText);
-
             return lastResults;
         }
 
