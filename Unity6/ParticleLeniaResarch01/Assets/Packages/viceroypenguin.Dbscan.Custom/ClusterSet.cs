@@ -1,12 +1,12 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using Assets.Packages.viceroypenguin.Dbscan.Custom;
+using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
+using UnityEngine;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -14,40 +14,47 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// The result of running the DBSCAN algorithm on a set of data.
     /// </summary>
     /// <typeparam name="TPoint">The type of elements in the cluster.</typeparam>
-    public class ClusterSet<TPoint, TCluster> : IReadOnlyDictionary<int, TCluster>
+    public class ClusterSet<TPoint, TCluster>
         where TPoint : IPointData
         where TCluster : Cluster<TPoint>, new()
     {
-        public ReadOnlyCollection<TCluster> Clusters { get; }
+        private Dictionary<int, TCluster> clusters;
 
-        public ClusterSet(List<TCluster> clusters, TCluster unclusteredObjectsCluster)
+        private TCluster[] values;
+
+        public ClusterSet(Dictionary<int, TCluster> clusters, TCluster unclusteredObjectsCluster)
+
         {
-            this.Clusters = clusters.AsReadOnly();
-            ClustersDict = new(clusters.ToDictionary(e => e.ClusterID.Value));
+            this.clusters = clusters;
+            values = clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
             UnclusteredObjects = unclusteredObjectsCluster;
         }
 
         /// <summary>
-        /// A list of the clusters that have been identified.
-        /// </summary>
-        public ReadOnlyDictionary<int, TCluster> ClustersDict { get; private set; }
-
-        /// <summary>
         /// A list of the items that were not identified as being part of a cluster.
         /// </summary>
-        public TCluster UnclusteredObjects { get; }
+        public TCluster UnclusteredObjects { get; private set; }
 
-        public IEnumerable<int> Keys => ((IReadOnlyDictionary<int, TCluster>)ClustersDict).Keys;
+        public Span<TCluster> Values => values ??= clusters.Values.ToArray();
 
-        public IEnumerable<TCluster> Values => ((IReadOnlyDictionary<int, TCluster>)ClustersDict).Values;
+        public int Count => clusters.Count;
 
-        public int Count => ((IReadOnlyCollection<KeyValuePair<int, TCluster>>)ClustersDict).Count;
+        public TCluster this[int id] => clusters.GetValueOrDefault(id);
 
-        public TCluster this[int key] => ((IReadOnlyDictionary<int, TCluster>)ClustersDict)[key];
+        public TCluster GetAt(int index) => values[index];
 
-        public void UpdateDict()
+        public void UpdateIDs()
         {
-            ClustersDict = new(Clusters.ToDictionary(e => e.ClusterID.Value));
+            try
+            {
+                clusters = clusters.Values.ToDictionary(e => e.ClusterID.Value);
+                values = clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
+            }
+            catch (Exception)
+            {
+                Debug.Log(string.Join(", ", clusters.Values));
+                throw;
+            }
         }
 
         public double SilhouetteCoefficient()
@@ -65,13 +72,13 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             }
 
             // 全クラスタのポイント群を取り出し
-            var clusters = Clusters;
+            var clusters = this.clusters.Values.ToArray().AsSpan();
 
             double total = 0;
             int count = 0;
 
             // 各クラスタごと
-            for (int c = 0; c < clusters.Count; c++)
+            for (int c = 0; c < clusters.Length; c++)
             {
                 var own = clusters[c];
 
@@ -100,7 +107,7 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                     // b(i): 他クラスタの最小平均距離
                     double b = double.MaxValue;
 
-                    for (int other = 0; other < clusters.Count; other++)
+                    for (int other = 0; other < clusters.Length; other++)
                     {
                         if (other == c) continue;
 
@@ -124,24 +131,32 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
             return count > 0 ? total / count : 0;
         }
 
-        public bool ContainsKey(int key)
-        {
-            return ((IReadOnlyDictionary<int, TCluster>)ClustersDict).ContainsKey(key);
-        }
-
         public bool TryGetValue(int key, out TCluster value)
         {
-            return ((IReadOnlyDictionary<int, TCluster>)ClustersDict).TryGetValue(key, out value);
+            return clusters.TryGetValue(key, out value);
         }
 
-        public IEnumerator<KeyValuePair<int, TCluster>> GetEnumerator()
+        public void Reset(List<TCluster> clusters, TCluster unclusteredObjects)
         {
-            return ((IEnumerable<KeyValuePair<int, TCluster>>)ClustersDict).GetEnumerator();
+            this.clusters = clusters.ToDictionary(e => e.ClusterID.Value);
+            values = clusters.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
+            UnclusteredObjects = unclusteredObjects;
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        public void RemovePoints(ReadOnlySpan<int> pointIndexs)
         {
-            return ((IEnumerable)ClustersDict).GetEnumerator();
+            for (int i = values.Length - 1; i >= 0; i--)
+            {
+                var cluster = values[i];
+                cluster.RemoveAll(pointIndexs);
+
+                if (cluster.Count == 0)
+                {
+                    clusters.Remove(cluster.ClusterID.Value);
+                }
+            }
+
+            values = clusters.Values.OrderBy(e => e.Objects.Min(e => e.Index)).ToArray();
         }
     }
 }

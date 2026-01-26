@@ -1,5 +1,5 @@
+using Assets.ParticleLeniaResarch01.Analyzers;
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PLCameraModeController : MonoBehaviour
@@ -29,20 +29,16 @@ public class PLCameraModeController : MonoBehaviour
     [Min(0.001f)]
     public float scale = 10f;
 
-    private PLMinMax minMax;
-
-    public void Setup(PLMinMax minMax)
+    public void CameraUpdate(Camera camera, MinMaxAnalyzer minMaxAnalyzer)
     {
-        this.minMax = minMax;
-    }
+        if (minMaxAnalyzer.XMinMax.Range < 0) return;
+        if (minMaxAnalyzer.YMinMax.Range < 0) return;
 
-    public void CameraUpdate(Camera camera)
-    {
         if (defaultOffset == null) defaultOffset = camera.transform.position;
 
-        if (chaseCenter && minMax != null)
+        if (chaseCenter && minMaxAnalyzer != null)
         {
-            var center = new Vector3((float)minMax.xMinMax.Center, (float)minMax.yMinMax.Center);
+            var center = new Vector3((float)minMaxAnalyzer.XMinMax.Center, (float)minMaxAnalyzer.YMinMax.Center);
 
             center.x += defaultOffset.Value.x + offset.x;
             center.y += defaultOffset.Value.y + offset.y;
@@ -60,8 +56,8 @@ public class PLCameraModeController : MonoBehaviour
             var dist = center - camera.transform.position;
 
             camera.transform.position += chaseSpeed2 * dist;
-            camera.orthographicSize = scale;
         }
+        camera.orthographicSize = scale;
     }
 
     public void GridUpdate(Camera camera, Renderer grid, Material gridMaterial)
@@ -75,10 +71,10 @@ public class PLCameraModeController : MonoBehaviour
         {
             gridMaterial.SetColor("_Color", gridOption.color);
             gridMaterial.SetFloat("_Space", gridOption.space);
-            var scale = grid.transform.localScale;
-            scale.y = camera.orthographicSize * 2;
-            scale.x = scale.y * camera.pixelWidth / camera.pixelHeight;
-            grid.transform.localScale = scale;
+            var gridScale = grid.transform.localScale;
+            gridScale.y = camera.orthographicSize * 2;
+            gridScale.x = gridScale.y * camera.pixelWidth / camera.pixelHeight;
+            grid.transform.localScale = gridScale;
         }
     }
 }

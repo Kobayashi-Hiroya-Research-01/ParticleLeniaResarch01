@@ -1,55 +1,124 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using Assets.Packages.viceroypenguin.Dbscan.Custom;
+using Assets.ParticleLeniaResarch01.Analysis;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Drawing;
-using System.Linq;
+using XCharts.Runtime;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
+    public abstract class Dbscan : Dbscan.IOption
+    {
+        public double Epsilon { get; set; }
+        public int MinimumPointsPerCluster { get; set; }
+
+        public interface IOption
+        {
+            double Epsilon { get; set; }
+            int MinimumPointsPerCluster { get; set; }
+
+            void CopyTo(IOption other)
+            {
+                other.Epsilon = Epsilon;
+                other.MinimumPointsPerCluster = MinimumPointsPerCluster;
+            }
+        }
+
+        public IOption AsOption => this;
+    }
+
     /// <summary>
     /// Contains static methods to run the DBSCAN algorithm.
     /// </summary>
-    public class Dbscan<TPoint, TCluster> : IDbscan<TPoint, TCluster> where TPoint : IPointData
+    public class Dbscan<TPoint, TCluster> : Dbscan, Dbscan<TPoint, TCluster>.IState, IDbscan<TPoint, TCluster>
+        where TPoint : IPointData
         where TCluster : Cluster<TPoint>, new()
     {
-        private int lastIDValue = 0;
-        private readonly ListSpatialIndex<TPoint> pointInfos;
-        private readonly Queue<PointInfo<TPoint>> queue;
+        public interface IState : IOption
+        {
+            ListSpatialIndex<TPoint> PointInfos { get; }
 
-        public double Epsilon { get; set; } = 0.1;
-        public int MinimumPointsPerCluster { get; set; } = 2;
+            void Reset(List<TPoint> points)
+            {
+                PointInfos.Clear();
+                PointInfos.AddRange(points);
+            }
+
+            IOption AsOption => this;
+        }
+
+        private readonly ListSpatialIndex<TPoint> pointInfos;
+        private readonly Queue<int> queue;
 
         public Dbscan()
         {
-            pointInfos = new ListSpatialIndex<TPoint>();
-            queue = new Queue<PointInfo<TPoint>>();
+            pointInfos = new();
+            queue = new(1000);
         }
+
+        public IState AsState => this;
+
+        public ListSpatialIndex<TPoint> PointInfos => pointInfos;
 
         public void AddPoint(TPoint data)
         {
-            pointInfos.List.Add(new PointInfo<TPoint>(data));
+            pointInfos.Add(data);
+        }
+
+        public void Reset()
+        {
+            pointInfos.Clear();
+            queue.Clear();
         }
 
         public ClusterSet<TPoint, TCluster> CalculateClusters(Action<TPoint, TCluster> onClustered)
         {
-            var clusters = new List<TCluster>();
+            var set = CalculateClusters();
 
-            foreach (var pointInfo in pointInfos.List)
+            if (onClustered != null)
+            {
+                foreach (var cluster in set.Values)
+                {
+                    foreach (var point in cluster)
+                    {
+                        onClustered(point, cluster);
+                    }
+                }
+
+                foreach (var point in set.UnclusteredObjects)
+                {
+                    onClustered(point, set.UnclusteredObjects);
+                }
+            }
+
+            return set;
+        }
+
+        public ClusterSet<TPoint, TCluster> CalculateClusters()
+        {
+            pointInfos.Reset(Epsilon);
+            queue.Clear();
+
+            var points = pointInfos.Items;
+            var clusters = new Dictionary<int, TCluster>(points.Length);
+            var unclusteredObjects = new List<TPoint>(points.Length);
+            var unclusteredObjectsCluster = new TCluster();
+            unclusteredObjectsCluster.Init(ClusterID.UnclusteredID, unclusteredObjects);
+
+            int clusterIndex = 0;
+            foreach (var pointInfo in points)
             {
                 if (pointInfo.Visited) continue;
 
                 pointInfo.Visited = true;
-                queue.Enqueue(pointInfo);
-                pointInfos.Search(pointInfo.Item, Epsilon, OnFind);
+                queue.Enqueue(pointInfo.Item.Index);
+                SearchAndEnqueue(pointInfo.Item);
 
                 if (queue.Count >= MinimumPointsPerCluster)
                 {
-                    var cluster = BuildCluster(pointInfo, onClustered);
-                    clusters.Add(cluster);
+                    var cluster = BuildCluster(clusterIndex++, pointInfo, points.Length);
+                    clusters.Add(cluster.ClusterID.Value, cluster);
                 }
                 else
                 {
@@ -57,69 +126,65 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
                 }
             }
 
-            var unclusteredObjectsCluster = new TCluster();
-            var unclusteredObjects = new List<TPoint>();
-            unclusteredObjectsCluster.Init(ClusterID.UnclusteredID, unclusteredObjects);
-
-            foreach (var pointInfo in pointInfos.List)
+            foreach (var point in points)
             {
-                if (!pointInfo.Clustered)
+                if (!point.Clustered)
                 {
-                    onClustered(pointInfo.Item, unclusteredObjectsCluster);
-                    unclusteredObjects.Add(pointInfo.Item);
+                    unclusteredObjects.Add(point.Item);
                 }
-                else
-                {
-                    pointInfo.Clustered = false;
-                }
-
-                pointInfo.Visited = false;
+                point.Clustered = false;
+                point.Visited = false;
             }
 
             return new ClusterSet<TPoint, TCluster>(clusters, unclusteredObjectsCluster);
         }
 
-        private TCluster BuildCluster(PointInfo<TPoint> corePointInfo, Action<TPoint, TCluster> onClustered)
+        private TCluster BuildCluster(int index, PointInfo<TPoint> corePointInfo, int capacity)
         {
-            int clusterIDValue = (lastIDValue == int.MaxValue) ? 0 : (lastIDValue + 1);
-            lastIDValue = clusterIDValue;
+            int clusterIDValue = index;
             var clusterID = new ClusterID(clusterIDValue);
-            var objects = new List<TPoint>();
+            var objects = new List<TPoint>(capacity: capacity);
             var cluster = new TCluster();
             cluster.Init(clusterID, objects);
 
             corePointInfo.Clustered = true;
-            onClustered(corePointInfo.Item, cluster);
             objects.Add(corePointInfo.Item);
 
             while (queue.Count > 0)
             {
-                var newPoint = queue.Dequeue();
-
+                var newPointIndex = queue.Dequeue();
+                var newPoint = pointInfos.Items[newPointIndex];
                 if (!newPoint.Visited)
                 {
                     newPoint.Visited = true;
-
-                    pointInfos.Search(newPoint.Item, Epsilon, OnFind);
+                    SearchAndEnqueue(newPoint.Item);
                 }
 
                 if (!newPoint.Clustered)
                 {
-                    newPoint.Clustered = true;
-                    onClustered?.Invoke(newPoint.Item, cluster);
                     objects.Add(newPoint.Item);
+                    newPoint.Clustered = true;
                 }
             }
 
+            objects.TrimExcess();
             return cluster;
         }
 
-        private void OnFind(PointInfo<TPoint> pInfo)
+        private void SearchAndEnqueue(TPoint point)
         {
-            if (!pInfo.Visited)
+            foreach (var pointInfo in pointInfos.Search(point))
             {
-                queue.Enqueue(pInfo);
+                if (!pointInfo.Visited)
+                {
+                    queue.Enqueue(pointInfo.Item.Index);
+                }
             }
+        }
+
+        internal void RemovePoints(ReadOnlySpan<int> pointIndexs)
+        {
+            pointInfos.RemovePoints(pointIndexs);
         }
     }
 }

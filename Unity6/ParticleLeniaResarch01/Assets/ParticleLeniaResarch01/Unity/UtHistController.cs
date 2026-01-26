@@ -1,16 +1,15 @@
-using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Analyzers;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
+using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Runtime.ConstrainedExecution;
 using UnityEngine;
 using XCharts.Runtime;
 
 public class UtHistController : MonoBehaviour
 {
     public LineChart chart;
-    public PLMinMax minMax;
+    public MinMaxAnalyzer minMax;
 
     [Range(10f, 200f)]
     public int count;
@@ -23,8 +22,8 @@ public class UtHistController : MonoBehaviour
     private List<SerieData> utData;
     private List<SerieData> eData;
     private List<SerieData> uteData;
-    private PLMinMax.MinMax utMinMax;
-    private PLMinMax.MinMax eMinMax;
+    private MinMax utMinMax;
+    private MinMax eMinMax;
 
     private double utRange;
     private double eRange;
@@ -33,39 +32,37 @@ public class UtHistController : MonoBehaviour
 
     private void Awake()
     {
+        /*
         if (minMax == null) minMax = FindFirstObjectByType<PLMinMax>();
         utMinMax ??= new(0, 1);
         eMinMax ??= new(0, 1);
+        */
     }
 
     private void OnEnable()
     {
+        /*
         if (minMax == null) minMax = FindFirstObjectByType<PLMinMax>();
         utMinMax ??= new(0, 1);
         eMinMax ??= new(0, 1);
+        */
     }
 
     public void SimulationInit()
     {
         weight = 1.0 / (movingAverageRange + 1);
 
-        utMinMax ??= new(0, 1);
-        eMinMax ??= new(0, 1);
-
-        utMinMax.min = minMax.utMinMax.min;
-        utMinMax.max = minMax.utMinMax.max;
-        utRange = utMinMax.max - utMinMax.min;
-
-        eMinMax.min = minMax.eMinMax.min;
-        eMinMax.max = minMax.eMinMax.max;
-        eRange = eMinMax.max - eMinMax.min;
+        utMinMax ??= new(minMax.UtMinMax);
+        eMinMax ??= new(minMax.EMinMax);
+        utRange = utMinMax.Range;
+        eRange = eMinMax.Range;
 
         uteData = chart.series[0].data;
         utData = chart.series[1].data;
         eData = chart.series[2].data;
 
-        ResetInfo(utRange, utMinMax.min, utData);
-        ResetInfo(eRange, eMinMax.min, eData);
+        ResetInfo(utRange, utMinMax.Min, utData);
+        ResetInfo(eRange, eMinMax.Min, eData);
         uteData.Clear();
     }
 
@@ -122,13 +119,13 @@ public class UtHistController : MonoBehaviour
     public void PostAction(ParticleInfo particleInfo)
     {
         var ut = particleInfo.lastUt;
-        var utMin = utMinMax.min;
+        var utMin = utMinMax.Min;
         var ut_01 = (ut - utMin) / utRange;
         var utIndex = Mathf.Clamp((int)Math.Floor(ut_01 * count) + 1, 1, utData.Count - 2);
         utData[utIndex].data[1] += weight;
 
         var e = particleInfo.LastE;
-        var eMin = eMinMax.min;
+        var eMin = eMinMax.Min;
         var e_01 = (e - eMin) / eRange;
         var eIndex = Mathf.Clamp((int)Math.Floor(e_01 * count) + 1, 1, eData.Count - 2);
         eData[eIndex].data[1] += weight;

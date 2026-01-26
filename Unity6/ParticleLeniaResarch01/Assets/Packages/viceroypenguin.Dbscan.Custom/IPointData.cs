@@ -13,8 +13,10 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// <summary>
         /// The location of the current object.
         /// </summary>
-        Span<double> Point { get; }
+        ReadOnlySpan<double> Point { get; }
 
-        public int Index { get; }
+        int Index { get; }
+
+        public void IndexReset(int newIndex);
     }
 }

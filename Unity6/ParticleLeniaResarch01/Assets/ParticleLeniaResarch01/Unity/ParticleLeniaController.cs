@@ -1,27 +1,92 @@
-using Assets.ParticleLenia.Scripts;
+using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Analyzers;
+using Assets.ParticleLeniaResarch01.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
-using Assets.ParticleLeniaResarch01.Scripts.Fields;
 using Assets.ParticleLeniaResarch01.Scripts.Initializers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEditor.Recorder;
+using UnityEditor;
 
 public class ParticleLeniaController : MonoBehaviour
 {
-    public class Serializer : IParticleFieldsSerializer
+    private class ParticlesAnalyzer : IParticleLeniaAnalyzer
     {
-        public static Serializer Instance { get; } = new Serializer();
+        public readonly ParticleLeniaController particleLeniaController;
+        public readonly List<PLParticleController> particles;
+        private readonly ParticleLeniaAnalyzerElement[] elements;
 
-        public IParticleFields Read(string text)
+        public ParticlesAnalyzer(ParticleLeniaController particleLeniaController)
         {
-            return new ParticleFieldsOriginal(JsonUtility.FromJson<ParticleFieldsOriginal.State>(text));
+            this.particleLeniaController = particleLeniaController;
+            particles = new();
+
+            elements = new ParticleLeniaAnalyzerElement[]
+            {
+                new(timing: ParticleLeniaAnalyzerTiming.ForeachCreated, loopStart: StartCreate, @foreach: ForeachCreated)
+            };
         }
 
-        public string Write(IParticleFields fields)
+        public bool Enabled { get; set; } = true;
+
+        public ReadOnlySpan<ParticleLeniaAnalyzerElement> GetAnalyzerElements() => elements;
+
+        public void Reset()
         {
-            return JsonUtility.ToJson(((ParticleFieldsOriginal)fields).GetState());
+            particles.Clear();
+            particleLeniaController.DestroyParticles();
+        }
+
+        public void SetupDependencies(ParticleLeniaAnalyzer dependencies, IParticleLenia particleLenia)
+        {
+            var clusterTrackingDbscans = dependencies.SearchAll<ClusterTrackingDbscanAnalyzer>();
+
+            foreach (var clusterTrackingDbscan in clusterTrackingDbscans)
+            {
+                clusterTrackingDbscan.OnClustered -= ClusterTrackingDbscan_OnClustered;
+                clusterTrackingDbscan.OnClustered += ClusterTrackingDbscan_OnClustered;
+            }
+        }
+
+        private void StartCreate(ParticleInfoArray particles)
+        {
+            this.particles.Capacity = particleLeniaController.simulationOptions.particleCount;
+        }
+
+        private void ForeachCreated(ParticleInfo info, int index)
+        {
+            var p = particleLeniaController.CreateParticle(info, index);
+            particles.Add(p);
+        }
+
+        private void ClusterTrackingDbscan_OnClustered(ClusterTrackingPoint point, ClusterTrackingCluster<ClusterTrackingPoint> cluster, string clusteringName)
+        {
+            particles[point.Index].clusterInfo.SetCluster(clusteringName, cluster);
+        }
+
+        public void RemovePoints(IParticleLenia particleLenia, ReadOnlySpan<int> pointIndexs)
+        {
+            for (int i = particles.Count - 1; i >= 0; i--)
+            {
+                var p = particles[i];
+                foreach (var index in pointIndexs)
+                {
+                    if (p.particleIndex == index)
+                    {
+                        particles.RemoveAt(i);
+                        Destroy(p.gameObject);
+                    }
+                }
+            }
+
+            for (int i = 0; i < particles.Count; i++)
+            {
+                var p = particles[i];
+                p.particleIndex = i;
+            }
         }
     }
 
@@ -29,31 +94,65 @@ public class ParticleLeniaController : MonoBehaviour
     public class PlayerOptions
     {
         public bool isPlay;
+        public bool recording;
         public int seedIncrement = 1;
 
         [Min(1)]
         public int stepParFrame = 1;
+
+        public int autoStop = -1;
     }
 
+    [Serializable]
+    public class AutopoieticPotentialOptions
+    {
+        public bool calcSystemPotential;
+
+        public bool writeLog;
+
+        [Min(0)]
+        public int analyzeFrequency = 120;
+
+        [Min(-1)]
+        public int analyzeCount = 14 * 4;
+
+        [Min(1)]
+        public int deltaFrame = 60;
+    }
+
+    [Serializable]
+    public class DebugInfo
+    {
+        [Serializable]
+        public class AutopoieticPotentialItem
+        {
+            public int clusterID = -1;
+            public double autopoieticPotential;
+        }
+
+        public int currentStep;
+        public double currentTime;
+
+        public AutopoieticPotentialItem[] autopoieticPotentials = new AutopoieticPotentialItem[0];
+    }
+
+    public DebugInfo debugInfo;
+    public Text infoText;
     public PLViewModeController viewModeController;
     public PLCameraController cameraController;
-    public PLMinMax minMax;
     public UtHistController utHistController;
-    public PLDBSCAN[] pLDBSCANs;
+    public PLAnalyzerListController analyzerList;
     public GameObject particlePrefab;
     public PlayerOptions playerOptions;
-    //public bool updateTimeLine;
-    //public bool viewTimeLine;
-    //public ParticleLeniaTimeLine.Record timeLine;
+    public AutopoieticPotentialOptions autopoieticPotentialOptions;
+    public MultiParticleInitializer.State simulationOptions;
 
-    public OriginalInitializer.State simulationOptions;
-
-    private List<PLParticleController> particles;
-
+    private ParticlesAnalyzer particlesAnalyzer;
     private ParticleLeniaSimulation simulation;
-
-    public List<PLParticleController> Particles => particles;
-    public DistanceCache LastDistances => simulation.LastDistances;
+    private ParticleLeniaAnalyzer analyzer;
+    private AutopoieticSystemPotential autopoieticSystemPotential;
+    private AutopoieticSystemPotentialArg autopoieticSystemPotentialArg;
+    private int autopoieticSystemPotentialFreqIndex = 0;
 
     private void Awake()
     {
@@ -67,40 +166,68 @@ public class ParticleLeniaController : MonoBehaviour
             cameraController = FindFirstObjectByType<PLCameraController>();
         }
 
-        if (minMax == null)
-        {
-            minMax = FindFirstObjectByType<PLMinMax>();
-        }
-
         if (utHistController == null)
         {
             utHistController = FindFirstObjectByType<UtHistController>();
         }
 
-        if (pLDBSCANs == null || pLDBSCANs.Length == 0)
+        if (analyzerList == null)
         {
-            pLDBSCANs = FindObjectsByType<PLDBSCAN>(FindObjectsSortMode.None).OrderBy(e => e.name, StringComparer.Ordinal).ToArray();
+            analyzerList = FindFirstObjectByType<PLAnalyzerListController>();
         }
-        cameraController.Awake();
+
+        autopoieticSystemPotential ??= new AutopoieticSystemPotential();
     }
 
     private void OnEnable()
     {
-        viewModeController = viewModeController != null ? viewModeController : FindFirstObjectByType<PLViewModeController>();
-        cameraController = cameraController != null ? cameraController : FindFirstObjectByType<PLCameraController>();
+        var recorder = GetRecorder();
+        if (recorder != null)
+        {
+            if (recorder.IsRecording())
+            {
+                Debug.Log("StartRecording!");
+            }
+            else if (playerOptions.recording)
+            {
+                recorder.StartRecording();
+                Debug.Log("StartRecording!");
+            }
+        }
 
+        Awake();
+        DestroyParticles();
+
+        simulation = new();
+        analyzer = new();
+        particlesAnalyzer = new(this);
+
+        var initializer = new MultiParticleInitializer();
+        initializer.SetState(simulationOptions);
+        simulation.Initializer = initializer;
+
+        analyzer.AddRange(analyzerList.ParticleLeniaAnalyzers);
+        analyzer.Add(particlesAnalyzer);
+
+        analyzer.AnalyzeAndInit(simulation);
+    }
+
+    private PLParticleController CreateParticle(ParticleInfo info, int index)
+    {
+        var go = Instantiate(particlePrefab, transform);
+        var component = go.GetComponent<PLParticleController>();
+        component.InitPostAction(info, viewModeController, analyzer, index);
+
+        return component;
+    }
+
+    private void DestroyParticles()
+    {
         var oldParticles = GetComponentsInChildren<PLParticleController>();
         foreach (var p in oldParticles)
         {
             Destroy(p.gameObject);
         }
-
-        simulation = new();
-        particles = new();
-        var initializer = new OriginalInitializer();
-        initializer.SetState(simulationOptions);
-        simulation.Initializer = initializer;
-        SimulationInit();
     }
 
     // Update is called once per frame
@@ -114,75 +241,126 @@ public class ParticleLeniaController : MonoBehaviour
         if (Input.GetKeyUp(KeyCode.R))
         {
             simulationOptions.seed += playerOptions.seedIncrement;
-            SimulationInit();
+            analyzer.AnalyzeAndInit(simulation);
+            cameraController.UpdateCamera(analyzer);
+            autopoieticSystemPotentialFreqIndex = 0;
         }
 
         if (playerOptions.isPlay || Input.GetKeyUp(KeyCode.N))
         {
-            utHistController.SimulationInit();
-            minMax.SimulationInit();
-            simulation.Next(playerOptions.stepParFrame, IntermediatePostAction, LastPostAction, PostStepAction);
+            analyzer.AnalyzeAndNext(simulation, playerOptions.stepParFrame);
+            CalcAutopoieticSystemPotential();
         }
-    }
 
-    private void IntermediatePostAction(ParticleInfo info, int index)
-    {
-        minMax.IntermediatePostAction(info);
-        particles[index].InfoUpdate(info);
-        //ÉåÉRÅ[Éhèàóù
-    }
-
-    private void LastPostAction(ParticleInfo info, int index)
-    {
-        utHistController.LastPostAction(info);
-        minMax.LastPostAction(info);
-        particles[index].InfoUpdate(info);
-    }
-
-    private void PostStepAction()
-    {
-        Parallel.ForEach(pLDBSCANs, PLDBSCANUpdate);
-    }
-
-    private void PLDBSCANUpdate(PLDBSCAN pLDBSCAN)
-    {
-        pLDBSCAN.UpdateSimulationAfter();
-    }
-
-    private void SimulationInit()
-    {
-        foreach (var p in particles)
+        if (Input.GetKeyDown(KeyCode.Z))
         {
-            Destroy(p.gameObject);
+            analyzer.AnalyzeAndNext(simulation, 0);
         }
-        particles.Clear();
 
-        minMax.SimulationInit();
-        utHistController.SimulationInit();
-        cameraController.SimulationInit(minMax);
-        foreach (var e in pLDBSCANs)
+        if (Input.GetKeyDown(KeyCode.X))
         {
-            e.SimulationInit();
+            Span<int> removes = stackalloc int[90];
+            for (int i = 0; i < removes.Length; i++) removes[i] = i;
+            analyzer.RemovePoints(simulation, removes);
         }
 
-        simulation.Init(InitPostAction);
-        PostStepAction();
+        var result = simulation.GetLastResult();
+
+        if (playerOptions.isPlay && playerOptions.autoStop > 0 && result.Step >= playerOptions.autoStop)
+        {
+            playerOptions.isPlay = false;
+
+            var recorder = GetRecorder();
+            if (recorder != null && recorder.IsRecording())
+            {
+                recorder.StopRecording();
+                Debug.Log("StopRecording!");
+            }
+
+            _D_AutopoieticPotential.Close();
+            EditorApplication.Beep();
+        }
+
+        debugInfo.currentStep = result.Step;
+        debugInfo.currentTime = result.Time;
+
+        var apIndexText = autopoieticPotentialOptions.calcSystemPotential ? $", AP index = {_D_AutopoieticPotential.Line}" : "";
+        infoText.text =
+            $"seed = {simulationOptions.seed}, step = {result.Step}, time = {result.Time}{apIndexText}\n" +
+            $"{autopoieticPotentialLogText}";
+
+        cameraController.UpdateCamera(analyzer);
     }
 
-    private void InitPostAction(ParticleInfo info, int index)
+    private RecorderWindow GetRecorder()
     {
-        var go = Instantiate(particlePrefab, transform);
-        var component = go.GetComponent<PLParticleController>();
-        component.InitPostAction(info, viewModeController, minMax, index);
-        particles.Add(component);
+        return EditorWindow.GetWindow<RecorderWindow>();
+    }
 
-        utHistController.InitPostAction(info);
-        minMax.InitPostAction(info);
+    private readonly DebugTextWriter _D_AutopoieticPotential = new("AutopoieticPotential");
 
-        foreach (var e in pLDBSCANs)
+    private string autopoieticPotentialLogText = "";
+
+    private void CalcAutopoieticSystemPotential()
+    {
+        if (!autopoieticPotentialOptions.calcSystemPotential) return;
+
+        if (autopoieticSystemPotentialFreqIndex == 0)
         {
-            e.InitPostAction(component);
+            if (autopoieticSystemPotentialArg == null)
+            {
+                var clusterTrackingDbscanAnalyzers = analyzer.SearchAll<ClusterTrackingDbscanAnalyzer>();
+                autopoieticSystemPotentialArg = new()
+                {
+                    baseUnitAnalyzer = clusterTrackingDbscanAnalyzers.First(e => e.ClusteringName == "Unit"),
+                    baseComponentAnalyzer = clusterTrackingDbscanAnalyzers.First(e => e.ClusteringName == "Component"),
+                };
+            }
+
+            autopoieticSystemPotentialArg.baseSimulation = simulation;
+            autopoieticSystemPotentialArg.step = autopoieticPotentialOptions.deltaFrame;
+
+            var results = autopoieticSystemPotential.CheckPotential(autopoieticSystemPotentialArg);
+
+            debugInfo ??= new();
+            debugInfo.autopoieticPotentials = results
+                .Select(e => new DebugInfo.AutopoieticPotentialItem() { clusterID = e.Key, autopoieticPotential = e.Value })
+                .OrderBy(e => e.clusterID)
+                .ToArray();
+
+            if (autopoieticPotentialOptions.writeLog && results.Count > 0)
+            {
+                var end = autopoieticPotentialOptions.analyzeCount;
+                if (end < 0) { end = _D_AutopoieticPotential.Line + 2; }
+                _D_AutopoieticPotential.AppendLineWithLog(() =>
+                {
+                    var maxUnit = results.OrderByDescending(e => e.Value).First();
+                    var maxValue = maxUnit.Value;
+                    var sum = results.Sum(e => e.Value);
+                    var ave = results.Average(e => e.Value);
+
+                    return $"{maxValue}, {sum}, {ave}";
+                }, 0, end, ", ");
+            }
+
+            autopoieticPotentialLogText = $"Last Max\t = {results.Max(e => e.Value),1:F4}\n";
+            autopoieticPotentialLogText += $"Last Sum\t = {results.Sum(e => e.Value),1:F4}\n";
+            autopoieticPotentialLogText += $"Last Ave AP\t = {results.Average(e => e.Value),1:F4}\n";
         }
+
+        if (autopoieticSystemPotentialFreqIndex >= autopoieticPotentialOptions.analyzeFrequency - 1)
+        {
+            autopoieticSystemPotentialFreqIndex = 0;
+        }
+        else
+        {
+            autopoieticSystemPotentialFreqIndex++;
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        _D_AutopoieticPotential.Close();
     }
 
     [SerializeField]
@@ -196,6 +374,6 @@ public class ParticleLeniaController : MonoBehaviour
     private void OnValidate()
     {
         simulationOptions ??= new();
-        simulationOptions.OnValidate(ref _oldAutoWk, ref _oldWk);
+        //simulationOptions.OnValidate(ref _oldAutoWk, ref _oldWk);
     }
 }

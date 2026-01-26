@@ -1,4 +1,5 @@
-using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Analyzers;
+using Assets.ParticleLeniaResarch01.Scripts;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,14 +16,12 @@ public class PLParticleController : MonoBehaviour
     public float g;
     public float r;
 
-    private PLMinMax pLMinMax;
     private Material material;
     private ParticleInfo particleInfo;
     private PLViewModeController viewModeController;
+    private MinMaxAnalyzer pLMinMax;
 
     public ParticleInfo ParticleInfo => particleInfo;
-
-    public PLClusterInfo ClusterInfo => clusterInfo;
 
     private void OnEnable()
     {
@@ -34,17 +33,12 @@ public class PLParticleController : MonoBehaviour
         Destroy(material);
     }
 
-    public void InfoUpdate(ParticleInfo particleInfo)
-    {
-        this.particleInfo = particleInfo;
-    }
-
-    public void InitPostAction(ParticleInfo particleInfo, PLViewModeController viewModeController, PLMinMax pLMinMax, int particleIndex)
+    public void InitPostAction(ParticleInfo particleInfo, PLViewModeController viewModeController, ParticleLeniaAnalyzer analyzer, int particleIndex)
     {
         this.particleInfo = particleInfo;
         this.viewModeController = viewModeController;
-        this.pLMinMax = pLMinMax;
         this.particleIndex = particleIndex;
+        pLMinMax = analyzer.Search<MinMaxAnalyzer>();
         heatMapU.Setup(particleInfo, viewModeController);
         heatMapR.Setup(particleInfo, viewModeController);
     }
@@ -58,14 +52,10 @@ public class PLParticleController : MonoBehaviour
             posV[i] = (float)pos[i];
         }
 
-        var list = clusterInfo.clusterInfoList;
-        while (list.Count < 2)
-        {
-            list.Add(new ClusterInfo());
-        }
+        var dic = clusterInfo.clusterInfoDict;
 
-        var color1 = viewModeController.GetColor(particleInfo, clusterInfo.clusterInfoList[0], pLMinMax);
-        var color2 = viewModeController.GetColor(particleInfo, clusterInfo.clusterInfoList[1], pLMinMax);
+        var color1 = viewModeController.GetColor(particleInfo, dic?.GetValueOrDefault("Component")?.ClusterID, pLMinMax);
+        var color2 = viewModeController.GetColor(particleInfo, dic?.GetValueOrDefault("Unit")?.ClusterID, pLMinMax);
 
         material.color = color1;
         material.SetColor("_Color2", color2);
@@ -82,10 +72,5 @@ public class PLParticleController : MonoBehaviour
         e = (float)particleInfo.LastE;
         g = (float)particleInfo.lastGt;
         r = (float)particleInfo.lastRt;
-
-        if (Input.GetKeyUp(KeyCode.Q) && particleIndex == 0)
-        {
-            Debug.Log("Pos : " + string.Join(",", particleInfo.position));
-        }
     }
 }

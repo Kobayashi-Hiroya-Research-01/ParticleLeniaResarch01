@@ -168,14 +168,25 @@ namespace Assets.Packages.MathNet.Numerics.Custom
             Order = order;
         }
 
-        protected double EvaluateDerivative(double sum_mul_coefficients_points, double stepSize, ReadOnlySpan<double> coefficients)
+        protected double EvaluateDerivative(double sum_mul_coefficients_points, double stepSize)
         {
             if (_order >= _points || _order < 0)
             {
                 throw new ArgumentOutOfRangeException("order", "Order must be between zero and points-1.");
             }
 
-            return sum_mul_coefficients_points * Math.Pow(stepSize, -_order);
+            return sum_mul_coefficients_points * Pow(1.0 / stepSize, _order);
+
+            static double Pow(double x, int y)
+            {
+                var pow = 1.0;
+                for (int i = 0; i < y; i++)
+                {
+                    pow *= x;
+                }
+
+                return pow;
+            }
 
             //return Enumerable.Select(_coefficients.GetCoefficients(Center, order), (double t, int i) => t * points[i]).Sum() / Math.Pow(stepSize, order);
         }

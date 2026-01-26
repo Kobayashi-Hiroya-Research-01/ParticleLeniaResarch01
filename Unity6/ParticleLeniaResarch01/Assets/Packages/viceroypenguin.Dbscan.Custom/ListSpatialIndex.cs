@@ -1,10 +1,12 @@
 ﻿// This code was copied from https://github.com/viceroypenguin/DBSCAN
 // and edited by this project.
 
-using Assets.ParticleLenia.Scripts;
+using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Assets.Packages.viceroypenguin.Dbscan.Custom
 {
@@ -16,7 +18,12 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
     /// <typeparam name="T">The type of items in the index.</typeparam>
     public class ListSpatialIndex<T> where T : IPointData
     {
-        public List<PointInfo<T>> List { get; }
+        private readonly List<PointInfo<T>> pointInfos;
+        private PointInfo<T>[] array;
+        private double epsilon;
+        private double epsilon2;
+
+        public Span<PointInfo<T>> Items => array;
 
         /// <summary>
         /// Initializes a <see cref="ListSpatialIndex{T}"/> with a collection of data, using the
@@ -26,7 +33,76 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// <param name="distanceFunction">The function used to determine if a point is within a specified distance of a given point.</param>
         public ListSpatialIndex()
         {
-            List = new List<PointInfo<T>>();
+            pointInfos = new();
+        }
+
+        public PointInfo<T> this[int index] => array[index];
+
+        public void Add(T item)
+        {
+            pointInfos.Add(new PointInfo<T>(item));
+        }
+
+        public void AddRange(List<T> points)
+        {
+            foreach (var point in points)
+            {
+                Add(point);
+            }
+        }
+
+        internal void RemovePoints(ReadOnlySpan<int> pointIndexs)
+        {
+            foreach (var index in pointIndexs)
+            {
+                var i = pointInfos.FindIndex(e => e.Item.Index == index);
+                if (i >= 0) pointInfos.RemoveAt(i);
+            }
+
+            for (int i = 0; i < pointInfos.Count; i++)
+            {
+                var p = pointInfos[i];
+                p.Item.IndexReset(i);
+            }
+        }
+
+        public void Clear()
+        {
+            pointInfos.Clear();
+            array = Array.Empty<PointInfo<T>>();
+        }
+
+        private const int _D_Start = 1;
+        private const int _D_End = 20 * 60 * 5;
+        private readonly DebugTextWriter _D_PointInfos = new("PointInfos", killed: true);
+
+        public void Reset(double epsilon)
+        {
+            this.epsilon = epsilon;
+            epsilon2 = epsilon * epsilon;
+            array = pointInfos.ToArray();
+
+            Parallel.ForEach(array, SearchNear);
+
+            _D_PointInfos.AppendLineWithLog(() => string.Join(", ", pointInfos), _D_Start, _D_End);
+        }
+
+        private void SearchNear(PointInfo<T> point_i)
+        {
+            foreach (var point_j in array)
+            {
+                if (point_i != point_j && DistanceSquares(point_i.Item, point_j.Item) < epsilon2)
+                {
+                    point_i.AddNear(point_j);
+                }
+            }
+
+            point_i.MakeNearArray();
+        }
+
+        private double DistanceSquares(in T a, in T b)
+        {
+            return DistanceSquareCache.DistanceSquare(a.Point, b.Point);
         }
 
         /// <summary>
@@ -39,32 +115,9 @@ namespace Assets.Packages.viceroypenguin.Dbscan.Custom
         /// <returns>
         /// A list of the points that are within the search area.
         /// </returns>
-        public void Search(in T p, double epsilon, Action<PointInfo<T>> onFind)
+        public ReadOnlySpan<PointInfo<T>> Search(in T p)
         {
-            foreach (var q in List)
-            {
-                if (Distance(p, q.Item) < epsilon)
-                {
-                    onFind(q);
-                }
-            }
-        }
-
-        private double Distance(in T a, in T b)
-        {
-            var ai = a.Point;
-            var bi = b.Point;
-
-            var sqDistance = 0.0;
-
-            for (var i = 0; i < ai.Length; i++)
-            {
-                var dx = ai[i] - bi[i];
-                sqDistance += dx * dx;
-            }
-
-            //return pos;
-            return Math.Sqrt(sqDistance);
+            return array[p.Index].NearArray;
         }
     }
 }

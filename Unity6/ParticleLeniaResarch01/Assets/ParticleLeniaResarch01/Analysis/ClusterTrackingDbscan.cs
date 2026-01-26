@@ -1,33 +1,72 @@
-﻿using Assets.Packages.viceroypenguin.Dbscan;
-using Assets.Packages.viceroypenguin.Dbscan.Custom;
+﻿using Assets.Packages.viceroypenguin.Dbscan.Custom;
+using Assets.ParticleLeniaResarch01.Scripts.Data;
+using MathNet.Numerics;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using UnityEngine.Rendering.Universal;
+using System.Xml.Linq;
+using Unity.VisualScripting;
+using UnityEngine;
 
 namespace Assets.ParticleLeniaResarch01.Analysis
 {
-    public class ClusterTrackingDbscan<TPoint> : IDbscan<TPoint, ClusterTrackingCluster<TPoint>>
-        where TPoint : IClusterTrackingPointData
+    using Cluster = ClusterTrackingCluster<ClusterTrackingPoint>;
+    using Point = ClusterTrackingPoint;
+
+    public class ClusterTrackingDbscan : ClusterTrackingDbscan.IState, IDbscan<Point, Cluster>
     {
-        private ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> oldSet;
+        public interface IOption
+        {
+            Dbscan.IOption DbscanOption { get; }
+            ClusterTrackingMode TrackingMode { get; set; }
+            int StartIndex { get; set; }
+            double ContinuousRatio { get; set; }
+
+            void CopyTo(IOption other)
+            {
+                DbscanOption.CopyTo(other.DbscanOption);
+                other.TrackingMode = TrackingMode;
+                other.StartIndex = StartIndex;
+                other.ContinuousRatio = ContinuousRatio;
+            }
+        }
+
+        public interface IState : IOption
+        {
+            int LastID { get; set; }
+
+            Dbscan<Point, Cluster>.IState DbscanState { get; }
+            ClusterSet<Point, Cluster> LastResult { get; }
+
+            IOption AsOption => this;
+        }
+
+        private readonly Dbscan<Point, Cluster> dbscan;
+        private ClusterSet<Point, Cluster> lastResult;
 
         public ClusterTrackingDbscan()
         {
-            var clusters = new List<ClusterTrackingCluster<TPoint>>();
-            var unclusteredObjectsCluster = new ClusterTrackingCluster<TPoint>();
-            unclusteredObjectsCluster.Init(ClusterID.UnclusteredID, new());
-            oldSet = new(clusters, unclusteredObjectsCluster);
+            dbscan = new Dbscan<Point, Cluster>();
+            var clusters = new Dictionary<int, Cluster>();
+            var unclusteredObjectsCluster = new Cluster(ClusterID.UnclusteredID);
+            lastResult = new ClusterSet<Point, Cluster>(clusters, unclusteredObjectsCluster);
+            LastID = -1;
         }
 
         public ClusterTrackingMode TrackingMode { get; set; }
-
-        public int NextID { get; set; }
-
         public int StartIndex { get; set; }
-
         public double ContinuousRatio { get; set; }
+        public int LastID { get; set; }
+
+        public IOption AsOption => this;
+
+        public IState AsState => this;
+
+        public Dbscan.IOption DbscanOption => dbscan;
+
+        public Dbscan<Point, Cluster> Dbscan => dbscan;
+
+        public ClusterSet<Point, Cluster> LastResult => lastResult;
 
         public double Epsilon
         {
@@ -41,60 +80,225 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             set => Dbscan.MinimumPointsPerCluster = value;
         }
 
-        public Dbscan<TPoint, ClusterTrackingCluster<TPoint>> Dbscan { get; } = new Dbscan<TPoint, ClusterTrackingCluster<TPoint>>();
+        public Dbscan<Point, Cluster>.IState DbscanState => dbscan;
 
-        public void AddPoint(TPoint data)
+        public void Reset()
+        {
+            dbscan.Reset();
+            var clusters = new Dictionary<int, Cluster>();
+            var unclusteredObjectsCluster = new Cluster(ClusterID.UnclusteredID);
+            lastResult = new ClusterSet<Point, Cluster>(clusters, unclusteredObjectsCluster);
+            LastID = StartIndex;
+        }
+
+        public void AddPoint(Point data)
         {
             Dbscan.AddPoint(data);
         }
 
-        public ClusterSet<TPoint, ClusterTrackingCluster<TPoint>> CalculateClusters(Action<TPoint, ClusterTrackingCluster<TPoint>> onClustered)
+        public ClusterSet<Point, Cluster> CalculateClusters(Action<Point, Cluster> onClustered)
         {
-            var set = Dbscan.CalculateClusters(OnClustered + onClustered);
+            var set = CalculateClusters();
 
-            switch (TrackingMode)
+            if (onClustered != null)
             {
-                case ClusterTrackingMode.Continuous_FowlkesMallowsLike:
-                    SetIDByContinuousTracking(set.Clusters, FowlkesMallowsLikeCondition);
-                    break;
+                foreach (var cluster in set.Values)
+                {
+                    foreach (var point in cluster)
+                    {
+                        onClustered(point, cluster);
+                    }
+                }
 
-                case ClusterTrackingMode.Continuous_FowlkesMallowsIndex:
-                    SetIDByContinuousTracking(set.Clusters, FowlkesMallowsIndexCondition);
+                foreach (var point in set.UnclusteredObjects)
+                {
+                    onClustered(point, set.UnclusteredObjects);
+                }
+            }
+
+            return set;
+        }
+
+        public ClusterSet<Point, Cluster> CalculateClusters()
+        {
+            var set = Dbscan.CalculateClusters(OnClustered);
+
+            SetIdByTrackingMode(set, TrackingMode);
+            lastResult = set;
+
+            return set;
+        }
+
+        private void SetIdByTrackingMode(ClusterSet<Point, Cluster> set, ClusterTrackingMode trackingMode)
+        {
+            switch (trackingMode)
+            {
+                case ClusterTrackingMode.None:
                     break;
 
                 case ClusterTrackingMode.OrderByCount:
-                    SetIDByOrderByCount(set.Clusters);
+                    SetIDByOrderByCount(set);
                     break;
 
-                case ClusterTrackingMode.OrderByLifeTime:
-                    SetIDByOrderByLifeTime(set.Clusters);
+                case ClusterTrackingMode.FowlkesMallowsIndex:
+                    SetIDByContinuousTracking(set, FowlkesMallowsIndexCondition);
                     break;
 
-                case ClusterTrackingMode.None:
+                case ClusterTrackingMode.ElementWiseFowlkesMallowsIndex:
+                    SetIDByContinuousTracking(set, ElementWiseFowlkesMallowsIndexCondition);
+                    break;
+
+                case ClusterTrackingMode.F1:
+                    SetIDByContinuousTracking(set, F1Condition);
+                    break;
+
+                case ClusterTrackingMode.F0_5:
+                    SetIDByContinuousTracking(set, F0_5Condition);
+                    break;
+
+                case ClusterTrackingMode.F2:
+                    SetIDByContinuousTracking(set, F2Condition);
+                    break;
+
+                case ClusterTrackingMode.PairwiseF1:
+                    SetIDByContinuousTracking(set, PairwiseF1Condition);
+                    break;
+
+                case ClusterTrackingMode.PairwiseF0_5:
+                    SetIDByContinuousTracking(set, PairwiseF0_5Condition);
+                    break;
+
+                case ClusterTrackingMode.PairwiseF2:
+                    SetIDByContinuousTracking(set, PairwiseF2Condition);
                     break;
 
                 default:
                     throw new NotImplementedException();
             }
-
-            oldSet = set;
-            oldSet.UpdateDict();
-
-            return set;
         }
 
-        private bool FowlkesMallowsLikeCondition(double p, double r)
+        private bool FowlkesMallowsIndexCondition(int sameCount, int oldCount, int newCount, double continuousRatio)
         {
-            return p >= ContinuousRatio     // 旧クラスタ総量の continuousRatio 倍以上が新クラスタに残っている
-                && r >= ContinuousRatio;    // 旧クラスタ由来量の continuousRatio 倍以上が旧クラスタ由来である
+            if (oldCount < 2 || newCount < 2) return false;
+
+            var tp = (double)PairwiseCount(sameCount);
+            var recall = tp / PairwiseCount(oldCount);
+            var precision = tp / PairwiseCount(newCount);
+
+            return FowlkesMallowsIndexCondition(recall, precision, continuousRatio * continuousRatio);
         }
 
-        private bool FowlkesMallowsIndexCondition(double p, double r)
+        private bool ElementWiseFowlkesMallowsIndexCondition(int sameCount, int oldCount, int newCount, double continuousRatio)
         {
-            return p * r >= ContinuousRatio * ContinuousRatio;
+            if (oldCount <= 0 || newCount <= 0) return false;
+
+            var tp = (double)sameCount;
+            var recall = tp / oldCount;
+            var precision = tp / newCount;
+
+            return FowlkesMallowsIndexCondition(recall, precision, continuousRatio);
         }
 
-        private void OnClustered(TPoint point, ClusterTrackingCluster<TPoint> cluster)
+        private bool F1Condition(int sameCount, int oldCount, int newCount, double continuousRatio)
+        {
+            if (oldCount <= 0 || newCount <= 0) return false;
+
+            var tp = (double)sameCount;
+            var recall = tp / oldCount;
+            var precision = tp / newCount;
+
+            return F1Condition(recall, precision, continuousRatio);
+        }
+
+        private bool PairwiseF1Condition(int sameCount, int oldCount, int newCount, double continuousRatio)
+        {
+            if (oldCount < 2 || newCount < 2) return false;
+
+            var tp = (double)PairwiseCount(sameCount);
+            var recall = tp / PairwiseCount(oldCount);
+            var precision = tp / PairwiseCount(newCount);
+
+            return F1Condition(recall, precision, continuousRatio * continuousRatio);
+        }
+
+        private bool F2Condition(int sameCount, int oldCount, int newCount, double continuousRatio)
+        {
+            if (oldCount <= 0 || newCount <= 0) return false;
+
+            var tp = (double)sameCount;
+            var recall = tp / oldCount;
+            var precision = tp / newCount;
+
+            return F2Condition(recall, precision, continuousRatio);
+        }
+
+        private bool PairwiseF2Condition(int sameCount, int oldCount, int newCount, double continuousRatio)
+        {
+            if (oldCount < 2 || newCount < 2) return false;
+
+            var tp = (double)PairwiseCount(sameCount);
+            var recall = tp / PairwiseCount(oldCount);
+            var precision = tp / PairwiseCount(newCount);
+
+            return F2Condition(recall, precision, continuousRatio * continuousRatio);
+        }
+
+        private bool F0_5Condition(int sameCount, int oldCount, int newCount, double continuousRatio)
+        {
+            if (oldCount <= 0 || newCount <= 0) return false;
+
+            var tp = (double)sameCount;
+            var recall = tp / oldCount;
+            var precision = tp / newCount;
+
+            return F0_5Condition(recall, precision, continuousRatio);
+        }
+
+        private bool PairwiseF0_5Condition(int sameCount, int oldCount, int newCount, double continuousRatio)
+        {
+            if (oldCount < 2 || newCount < 2) return false;
+
+            var tp = (double)PairwiseCount(sameCount);
+            var recall = tp / PairwiseCount(oldCount);
+            var precision = tp / PairwiseCount(newCount);
+
+            return F0_5Condition(recall, precision, continuousRatio * continuousRatio);
+        }
+
+        private static bool F2Condition(double recall, double precision, double continuousRatio)
+        {
+            return FBataCondition(recall, precision, 2.0, continuousRatio);
+        }
+
+        private static bool F0_5Condition(double recall, double precision, double continuousRatio)
+        {
+            return FBataCondition(recall, precision, 0.5, continuousRatio);
+        }
+
+        private static bool FowlkesMallowsIndexCondition(double recall, double precision, double continuousRatio)
+        {
+            return recall * precision >= continuousRatio * continuousRatio;
+        }
+
+        private static bool F1Condition(double recall, double precision, double continuousRatio)
+        {
+            return 2.0 * recall * precision >= continuousRatio * (precision + recall);
+        }
+
+        private static bool FBataCondition(double recall, double precision, double bata, double continuousRatio)
+        {
+            var bata2 = bata * bata;
+            return (bata2 + 1.0) * recall * precision >= continuousRatio * (bata2 * precision + recall);
+        }
+
+        private static int PairwiseCount(int elementCount)
+        {
+            var k = elementCount;
+
+            return k * (k - 1) >> 1;
+        }
+
+        private void OnClustered(Point point, Cluster cluster)
         {
             var oldID = point.ClusterID.Value;
 
@@ -110,125 +314,132 @@ namespace Assets.ParticleLeniaResarch01.Analysis
             point.ClusterID = cluster.ClusterID;
         }
 
-        private void SetIDByContinuousTracking(ReadOnlyCollection<ClusterTrackingCluster<TPoint>> clusters, Func<double, double, bool> condition)
-        {
-            Dictionary<int, ClusterTrackingCluster<TPoint>> trackedClusters = new();
+        private readonly Dictionary<int, Cluster> trackedClusters = new();
 
-            foreach (var cluster in clusters)
+        private delegate bool TrackingCondition(int sameCount, int oldCount, int newCount, double continuousRatio);
+
+        private void SetIDByContinuousTracking(ClusterSet<Point, Cluster> clusters, TrackingCondition condition)
+        {
+            trackedClusters.Clear();
+
+            foreach (var cluster in clusters.Values)
             {
                 // 条件を満たすもっとも量が多い旧クラスタをトラッキング
-                var trackedID = cluster.OldIDCount
-                    .Select(countOld =>
-                    {
-                        int oldId = countOld.Key;
+                bool CheckCondition(KeyValuePair<int, int> oldIdCount)
+                {
+                    int oldId, sameCount, oldCount, newCount;
+                    oldId = oldIdCount.Key;
+                    //新旧クラスタ一致量
+                    sameCount = oldIdCount.Value;
+                    //旧クラスタ割合
+                    oldCount = lastResult.TryGetValue(oldId, out var oldCluster) ? oldCluster.Count : 0;
+                    //新クラスタ割合
+                    newCount = cluster.Count;
 
-                        //新旧クラスタ一致量
-                        int sameCount = countOld.Value;
+                    return condition(sameCount, oldCount, newCount, ContinuousRatio);
+                }
 
-                        double p, r;
-
-                        if (oldSet.TryGetValue(oldId, out var oldCluster))
-                        {
-                            //旧クラスタ割合
-                            p = (double)sameCount / oldCluster.Count;
-                            //新クラスタ割合
-                            r = (double)sameCount / cluster.Count;
-                        }
-                        else
-                        {
-                            //旧クラスタ割合
-                            p = 0;
-                            //新クラスタ割合
-                            r = sameCount / cluster.Count;
-                        }
-
-                        return (oldId, sameCount, p, r);
-                    })
-                    .Where(values => condition(values.p, values.r))
-                    .OrderByDescending(values => values.sameCount)
+                var trackedIDCount = cluster.OldIDCount
+                    .Where(CheckCondition)
+                    .OrderByDescending(OrderByValue)
                     .FirstOrDefault();
 
-                int trackedIDValue = trackedID.oldId;
+                cluster.OldIDCount.Clear();
+
+                int trackedID = trackedIDCount.Key;
                 int id, lifeTime;
 
-                if (trackedID.sameCount == 0)
+                if (trackedIDCount.Value == 0 || trackedIDCount.Key == ClusterID.UnclusteredID.Value)
                 {
-                    id = GetNextID(clusters);
+                    id = GetNewID();
                     lifeTime = 1;
                 }
-                else if (trackedClusters.TryGetValue(trackedIDValue, out var sisterCluster))
+                else if (trackedClusters.TryGetValue(trackedID, out var sisterCluster))
                 {
-                    if (sisterCluster.ClusterID.Value == trackedIDValue)
+                    if (sisterCluster.ClusterID.Value == trackedID)
                     {
-                        UpdateClusterInfo(sisterCluster, GetNextID(clusters), 1);
+                        sisterCluster.UpdateClusterInfo(GetNewID(), 1);
                     }
 
-                    id = GetNextID(clusters);
+                    id = GetNewID();
                     lifeTime = 1;
                 }
                 else
                 {
-                    trackedClusters.Add(trackedIDValue, cluster);
+                    trackedClusters.Add(trackedID, cluster);
 
-                    id = trackedIDValue;
-                    lifeTime = oldSet[trackedIDValue].LifeTime + 1;
+                    id = trackedID;
+                    lifeTime = lastResult[trackedID].LifeTime + 1;
                 }
 
-                UpdateClusterInfo(cluster, id, lifeTime);
+                cluster.UpdateClusterInfo(id, lifeTime);
             }
+
+            clusters.UpdateIDs();
         }
 
-        private void SetIDByOrderByCount(ReadOnlyCollection<ClusterTrackingCluster<TPoint>> clusters)
+        private int OrderByValue(KeyValuePair<int, int> oldIdCount)
+        {
+            return oldIdCount.Value;
+        }
+
+        private void SetIDByOrderByCount(ClusterSet<Point, Cluster> clusters)
         {
             int i = StartIndex;
 
-            foreach (var cluster in clusters.OrderByDescending(e => e.Count))
+            foreach (var cluster in clusters.Values.ToArray().OrderByDescending(e => e.Count))
             {
                 var id = i++;
-                UpdateClusterInfo(cluster, id, cluster.OldIDCount[id] > 0 ? cluster.LifeTime + 1 : 1);
+                cluster.UpdateClusterInfo(id, 1);
             }
 
-            NextID = i;
+            clusters.UpdateIDs();
         }
 
-        private void SetIDByOrderByLifeTime(ReadOnlyCollection<ClusterTrackingCluster<TPoint>> clusters)
+        private int GetNewID()
         {
-            int i = StartIndex;
-
-            foreach (var cluster in clusters.OrderByDescending(e => e.LifeTime))
+            if (LastID < StartIndex)
             {
-                var id = i++;
-                UpdateClusterInfo(cluster, id, cluster.OldIDCount[id] > 0 ? cluster.LifeTime + 1 : 1);
+                LastID = StartIndex;
+            }
+            else if (LastID < int.MaxValue)
+            {
+                LastID++;
+            }
+            else
+            {
+                throw new NotSupportedException();
             }
 
-            NextID = i;
+            return LastID;
         }
 
-        private void UpdateClusterInfo(ClusterTrackingCluster<TPoint> cluster, int newIDValue, int lifeTime)
+        internal void CopyIDTo(ClusterTrackingDbscan other)
         {
-            cluster.LifeTime = lifeTime;
-            cluster.ClusterID.UpdateValue(newIDValue);
-        }
+            other.LastID = LastID;
 
-        private int GetNextID(ReadOnlyCollection<ClusterTrackingCluster<TPoint>> clusters)
-        {
-            if (NextID > int.MaxValue / 2)
+            var array = lastResult.Values;
+            var other_array = other.lastResult.Values;
+            for (int i = 0; i < array.Length; i++)
             {
-                NextID = 0;
-            }
+                var item = array[i];
+                var otherItem = other_array[i];
+                otherItem.UpdateClusterInfo(item.ClusterID.Value, item.LifeTime);
+                otherItem.OldIDCount.Clear();
 
-            for (int i = 0; i < clusters.Count; i++)
-            {
-                var e = clusters[i];
-                if (e.ClusterID.Value == NextID)
+                foreach (var (key, value) in item.OldIDCount)
                 {
-                    ++NextID;
-                    i = 0;
-                    continue;
+                    otherItem.OldIDCount[key] = value;
                 }
             }
 
-            return NextID++;
+            other.lastResult.UpdateIDs();
+        }
+
+        internal void RemovePoints(ReadOnlySpan<int> pointIndexs)
+        {
+            Dbscan.RemovePoints(pointIndexs);
+            lastResult.RemovePoints(pointIndexs);
         }
     }
 }

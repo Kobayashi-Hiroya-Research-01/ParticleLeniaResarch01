@@ -3,9 +3,14 @@
     public enum ClusterTrackingMode
     {
         None,
-        Continuous_FowlkesMallowsIndex,
-        Continuous_FowlkesMallowsLike,
+        FowlkesMallowsIndex,
+        F0_5,
+        F1,
+        F2,
+        ElementWiseFowlkesMallowsIndex,
+        PairwiseF0_5,
+        PairwiseF1,
+        PairwiseF2,
         OrderByCount,
-        OrderByLifeTime,
     }
 }

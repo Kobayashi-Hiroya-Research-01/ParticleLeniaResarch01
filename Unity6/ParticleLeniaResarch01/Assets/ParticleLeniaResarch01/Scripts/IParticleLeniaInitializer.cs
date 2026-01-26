@@ -1,4 +1,6 @@
-namespace Assets.ParticleLeniaResarch01.Scripts.Data
+using Assets.ParticleLeniaResarch01.Scripts.Data;
+
+namespace Assets.ParticleLeniaResarch01.Scripts
 {
     public interface IParticleLeniaInitializer
     {

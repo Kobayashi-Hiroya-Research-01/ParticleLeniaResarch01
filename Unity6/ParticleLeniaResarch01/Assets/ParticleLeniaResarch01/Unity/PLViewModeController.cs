@@ -1,5 +1,7 @@
-using Assets.ParticleLeniaResarch01.Analysis;
+using Assets.Packages.viceroypenguin.Dbscan.Custom;
+using Assets.ParticleLeniaResarch01.Analyzers;
 using Assets.ParticleLeniaResarch01.Scripts.Data;
+using Assets.ParticleLeniaResarch01.Scripts.MathObjects;
 using System;
 using UnityEngine;
 
@@ -88,7 +90,7 @@ public class PLViewModeController : MonoBehaviour
 
     public AfterEffectOptions afterEffectOptions;
 
-    public Color GetColor(ParticleInfo info, ClusterInfo clusterInfo, PLMinMax plMinMax)
+    public Color GetColor(ParticleInfo info, ClusterID clusterID, MinMaxAnalyzer plMinMax)
     {
         switch (colorMode)
         {
@@ -97,7 +99,7 @@ public class PLViewModeController : MonoBehaviour
 
             case ColorMode.Cluster:
 
-                var id = clusterInfo.clusterID.Value;
+                var id = clusterID?.Value ?? -1;
                 if (id < 0) return Color.gray2;
 
                 // ‰ºˆÊ2bit (0 to 3)
@@ -159,15 +161,15 @@ public class PLViewModeController : MonoBehaviour
         };
     }
 
-    public float GetRate(ParticleInfo info, PLMinMax plMinMax)
+    public float GetRate(ParticleInfo info, MinMaxAnalyzer plMinMax)
     {
         return GetRate(info, colorMode, plMinMax);
     }
 
-    public float GetRate(ParticleInfo info, ColorMode colorMode, PLMinMax plMinMax)
+    public float GetRate(ParticleInfo info, ColorMode colorMode, MinMaxAnalyzer plMinMax)
     {
         float value;
-        PLMinMax.MinMax minMax;
+        MinMax minMax;
 
         switch (colorMode)
         {
@@ -176,32 +178,29 @@ public class PLViewModeController : MonoBehaviour
 
             case ColorMode.E:
                 value = (float)info.LastE;
-                minMax = plMinMax.eMinMax;
+                minMax = plMinMax.EMinMax;
                 break;
 
             case ColorMode.Rt:
                 value = (float)info.lastRt;
-                minMax = plMinMax.rtMinMax;
+                minMax = plMinMax.RtMinMax;
                 break;
 
             case ColorMode.Gt:
                 value = (float)info.lastGt;
-                minMax = plMinMax.gtMinMax;
+                minMax = plMinMax.GtMinMax;
                 break;
 
             case ColorMode.Ut:
                 value = (float)info.lastUt;
-                minMax = plMinMax.utMinMax;
+                minMax = plMinMax.UtMinMax;
                 break;
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(colorMode));
         }
 
-        var range = minMax.max - minMax.min;
-        if (range == 0.0f) return 0.0f;
-        var rate = Mathf.Clamp01((float)((value - minMax.min) / range));
-        return rate;
+        return Mathf.Clamp01((float)minMax.GetRate(value));
     }
 
     private void OnEnable()
