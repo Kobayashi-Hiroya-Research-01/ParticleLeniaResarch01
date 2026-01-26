@@ -160,12 +160,12 @@ MonoBehaviour:
   particlePrefab: {fileID: 2253794128707804095, guid: 4a59a76d44455f7468cca89825992d11, type: 3}
   playerOptions:
     isPlay: 1
-    recording: 1
-    seedIncrement: 0
+    recording: 0
+    seedIncrement: 1
     stepParFrame: 10
     autoStop: 53800
   autopoieticPotentialOptions:
-    calcSystemPotential: 1
+    calcSystemPotential: 0
     writeLog: 1
     analyzeFrequency: 30
     analyzeCount: -1
@@ -180,12 +180,24 @@ MonoBehaviour:
         mu: 0.6
         sigma: 0.15
       cRep: 1
-    autoWk: 0
+    muKValues:
+    - 1
+    - 1.1
+    - 0.909090909090909
+    - 1.21
+    - 0.826446280991735
+    muGValues:
+    - 1
+    - 1.1
+    - 0.909090909090909
+    - 1.21
+    - 0.826446280991735
     deltaTime: 0.1
     particleCount: 200
     dimensions: 2
     area: 12
-    seed: 231
+    seed: 210
+    autoWk: 0
   _oldWk: 0.022
   _oldAutoWk: 0
 --- !u!4 &15117014
@@ -1526,7 +1538,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fbe652b75263ac44597dd1c418695504, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PLColorModeController
-  colorMode: 6
+  colorMode: 5
   solidColor: {r: 1, g: 1, b: 0, a: 0}
   eGradient:
     serializedVersion: 2
@@ -1648,9 +1660,9 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
-  utHeatMapAlpha: 0
-  rtHeatMapAlpha: 0
-  coreSize: 0.75
+  utHeatMapAlpha: 0.5
+  rtHeatMapAlpha: 1
+  coreSize: 0.25
   afterEffectOptions:
     afterEffect: {fileID: -876546973899608171, guid: 27b79d167cd9d3b45b2414e69052d230, type: 3}
     mode: 0
@@ -3677,7 +3689,7 @@ MonoBehaviour:
   clusteringName: Component
   clusterTrackingOption:
     dbscanOption:
-      epsilon: 1.5
+      epsilon: 1
       minimumPointsPerCluster: 2
     trackingMode: 3
     continuousRatio: 0.4000000059604645
@@ -4056,7 +4068,7 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 15
+    m_FontSize: 30
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 3
@@ -5039,7 +5051,7 @@ MonoBehaviour:
   clusteringName: Unit
   clusterTrackingOption:
     dbscanOption:
-      epsilon: 3
+      epsilon: 1.5
       minimumPointsPerCluster: 2
     trackingMode: 3
     continuousRatio: 0.4000000059604645
@@ -6741,10 +6753,10 @@ MonoBehaviour:
     enabled: 1
     space: 5
     color: {r: 1, g: 1, b: 1, a: 0.11764706}
-  chaseCenter: 1
+  chaseCenter: 0
   chaseSpeed: 0.01
   offset: {x: 0, y: 0}
-  scale: 10
+  scale: 15
 --- !u!1 &711511116
 GameObject:
   m_ObjectHideFlags: 0
@@ -18280,6 +18292,54 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 450, y: 500}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &1906144109
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1906144111}
+  - component: {fileID: 1906144110}
+  m_Layer: 0
+  m_Name: FrameRecorder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1906144110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1906144109}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49942fa0961224940b1b99aa82befa6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  frameInterval: 1000
+  saveFolder: Screenshots
+  fileName: MP_B
+  captureEnabled: 1
+--- !u!4 &1906144111
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1906144109}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.80365, y: -1.326, z: 7.52474}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1908220058
 GameObject:
   m_ObjectHideFlags: 0
@@ -25209,6 +25269,7 @@ CanvasRenderer:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 1906144111}
   - {fileID: 673603758}
   - {fileID: 1931626601}
   - {fileID: 15117014}

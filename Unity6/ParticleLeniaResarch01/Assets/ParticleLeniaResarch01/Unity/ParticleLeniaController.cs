@@ -10,7 +10,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor.Recorder;
 using UnityEditor;
-using UnityEngine.Profiling;
 
 public class ParticleLeniaController : MonoBehaviour
 {
@@ -146,7 +145,7 @@ public class ParticleLeniaController : MonoBehaviour
     public GameObject particlePrefab;
     public PlayerOptions playerOptions;
     public AutopoieticPotentialOptions autopoieticPotentialOptions;
-    public OriginalInitializer.State simulationOptions;
+    public MultiParticleInitializer.State simulationOptions;
 
     private ParticlesAnalyzer particlesAnalyzer;
     private ParticleLeniaSimulation simulation;
@@ -203,7 +202,7 @@ public class ParticleLeniaController : MonoBehaviour
         analyzer = new();
         particlesAnalyzer = new(this);
 
-        var initializer = new OriginalInitializer();
+        var initializer = new MultiParticleInitializer();
         initializer.SetState(simulationOptions);
         simulation.Initializer = initializer;
 
@@ -285,8 +284,9 @@ public class ParticleLeniaController : MonoBehaviour
         debugInfo.currentStep = result.Step;
         debugInfo.currentTime = result.Time;
 
+        var apIndexText = autopoieticPotentialOptions.calcSystemPotential ? $", AP index = {_D_AutopoieticPotential.Line}" : "";
         infoText.text =
-            $"seed = {simulationOptions.seed}, step = {result.Step}, time = {result.Time}, AP index = {_D_AutopoieticPotential.Line}\n" +
+            $"seed = {simulationOptions.seed}, step = {result.Step}, time = {result.Time}{apIndexText}\n" +
             $"{autopoieticPotentialLogText}";
 
         cameraController.UpdateCamera(analyzer);
@@ -374,6 +374,6 @@ public class ParticleLeniaController : MonoBehaviour
     private void OnValidate()
     {
         simulationOptions ??= new();
-        simulationOptions.OnValidate(ref _oldAutoWk, ref _oldWk);
+        //simulationOptions.OnValidate(ref _oldAutoWk, ref _oldWk);
     }
 }

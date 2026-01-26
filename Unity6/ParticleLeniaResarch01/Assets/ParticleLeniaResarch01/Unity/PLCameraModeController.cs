@@ -56,8 +56,8 @@ public class PLCameraModeController : MonoBehaviour
             var dist = center - camera.transform.position;
 
             camera.transform.position += chaseSpeed2 * dist;
-            camera.orthographicSize = scale;
         }
+        camera.orthographicSize = scale;
     }
 
     public void GridUpdate(Camera camera, Renderer grid, Material gridMaterial)
